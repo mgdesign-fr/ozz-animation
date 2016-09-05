@@ -30,44 +30,74 @@ struct Entity
 
 struct Data
 {
-  ozz::animation::Skeleton skeletons[CONFIG_NUM_SKELETONS];
-  ozz::animation::Animation animations[CONFIG_NUM_ANIMATIONS];
-  ozz::sample::Mesh meshs[CONFIG_NUM_MESHS];
-  Entity entities[CONFIG_NUM_ENTITIES];
+  ozz::animation::Skeleton skeletons[CONFIG_MAX_SKELETONS];
+  ozz::animation::Animation animations[CONFIG_MAX_ANIMATIONS];
+  ozz::sample::Mesh meshs[CONFIG_MAX_MESHS];
+  Entity entities[CONFIG_MAX_ENTITIES];
+  uint32_t entitiesCount;
 };
 
 Data* initialize(Config* config)
 {
   bool success = true;
-
   Data* data = new Data();
   
+  // NB, en plus de servir de compteurs, ces variables stockent aussi le nombre total de ces éléments une fois chargés.
+  uint32_t skeletonId = 0;
+  uint32_t animationId = 0;
+  uint32_t meshId = 0;
+
   // Reading skeletons.
-  for(uint32_t skeletonId = 0; skeletonId < CONFIG_NUM_SKELETONS; ++skeletonId)
-    success &= ozz::sample::LoadSkeleton(config->skeletonPaths[skeletonId], &data->skeletons[skeletonId]);
+  for(skeletonId = 0; skeletonId < CONFIG_MAX_SKELETONS; ++skeletonId)
+  {
+    char* skeletonPath = config->skeletonPaths[skeletonId];
+    if(skeletonPath == NULL)
+      break;
+
+    success &= ozz::sample::LoadSkeleton(skeletonPath, &data->skeletons[skeletonId]);
+  }
 
   if(success)
   {
     // Reading animations.
-    for(uint32_t animationId = 0; animationId < CONFIG_NUM_ANIMATIONS; ++animationId)
-      success &= ozz::sample::LoadAnimation(config->animationPaths[animationId], &data->animations[animationId]);
+    for(animationId = 0; animationId < CONFIG_MAX_ANIMATIONS; ++animationId)
+    {
+      char* animationPath = config->animationPaths[animationId];
+      if(animationPath == NULL)
+        break;
+
+      success &= ozz::sample::LoadAnimation(animationPath, &data->animations[animationId]);
+    }
   }
 
   if(success)
   {
     // Reading meshs.
-    for(uint32_t meshId = 0; meshId < CONFIG_NUM_MESHS; ++meshId)
-      success &= ozz::sample::LoadMesh(config->meshsPaths[meshId], &data->meshs[meshId]);
+    for(meshId = 0; meshId < CONFIG_MAX_MESHS; ++meshId)
+    {
+      char* meshPath = config->meshsPaths[meshId];
+      if(meshPath == NULL)
+        break;
+
+      success &= ozz::sample::LoadMesh(meshPath, &data->meshs[meshId]);
+    }
   }
 
   if(success)
   {
     // Building entities
+    assert(config->entitiesCount <= CONFIG_MAX_ENTITIES);
+    uint32_t entityId = 0;
     ozz::memory::Allocator* allocator = ozz::memory::default_allocator();
-    for(uint32_t entityId = 0; entityId < CONFIG_NUM_ENTITIES; ++entityId)
+    for(entityId = 0; entityId < config->entitiesCount; ++entityId)
     {
       Entity& entity = data->entities[entityId];
       EntityConfig& entityConfig = config->entities[entityId];
+
+      assert(entityConfig.skeletonId < skeletonId);
+      assert(entityConfig.animationId < animationId);
+      assert(entityConfig.meshId < meshId);
+
       entity.skeletonId = entityConfig.skeletonId;
       entity.animationId = entityConfig.animationId;
       entity.meshId = entityConfig.meshId;
@@ -91,19 +121,17 @@ Data* initialize(Config* config)
       entity.cache = allocator->New<ozz::animation::SamplingCache>(num_joints);
 
       // Entity world transform
-      if(entityConfig.transform == NULL)
-      {
-        // entity.transform = ozz::math::Float4x4::identity();
-        //TEST
-        ozz::math::SimdFloat4 translationOffset = ozz::math::simd_float4::Load(1.0f * entityId, 0.0f, 0.0f, 0.0f);
-        entity.transform = ozz::math::Float4x4::Translation(translationOffset);
-      }
-      else
-      {
-        // TODO
-        entity.transform = ozz::math::Float4x4::identity();
-      }
+      // ozz est column major convention comme rtgu (comme gl), donc on peut charger directement comme ça:
+      entity.transform.cols[0] = ozz::math::simd_float4::LoadPtrU(&entityConfig.transform[0]);
+      entity.transform.cols[1] = ozz::math::simd_float4::LoadPtrU(&entityConfig.transform[4]);
+      entity.transform.cols[2] = ozz::math::simd_float4::LoadPtrU(&entityConfig.transform[8]);
+      entity.transform.cols[3] = ozz::math::simd_float4::LoadPtrU(&entityConfig.transform[12]);
+      //entity.transform = ozz::math::Float4x4::identity();
+      
+      // Entity animation offset.
+      entity.controller.set_time(entityConfig.timeOffset);
     }
+    data->entitiesCount = config->entitiesCount;
   }
 
   // Clear memory on initialisation error.
@@ -119,7 +147,7 @@ Data* initialize(Config* config)
 void dispose(Data* data)
 {
   ozz::memory::Allocator* allocator = ozz::memory::default_allocator();
-  for(uint32_t entityId = 0; entityId < CONFIG_NUM_ENTITIES; ++entityId)
+  for(uint32_t entityId = 0; entityId < data->entitiesCount; ++entityId)
   {
     Entity& entity = data->entities[entityId];
     allocator->Deallocate(entity.locals);
@@ -132,7 +160,7 @@ void dispose(Data* data)
 
 void update(Data* data, float _dt)
 {
-  for(uint32_t entityId = 0; entityId < CONFIG_NUM_ENTITIES; ++entityId)
+  for(uint32_t entityId = 0; entityId < data->entitiesCount; ++entityId)
   {
     Entity& entity = data->entities[entityId];
     ozz::animation::Skeleton& entitySkeleton = data->skeletons[entity.skeletonId];
@@ -170,7 +198,7 @@ void update(Data* data, float _dt)
 void render(Data* data, void* _renderer)
 {
   ozz::sample::Renderer* rendererInstance = (ozz::sample::Renderer*)_renderer;
-  for(uint32_t entityId = 0; entityId < CONFIG_NUM_ENTITIES; ++entityId)
+  for(uint32_t entityId = 0; entityId < data->entitiesCount; ++entityId)
   {
     Entity& entity = data->entities[entityId];
     ozz::sample::Mesh& entityMesh = data->meshs[entity.meshId];
