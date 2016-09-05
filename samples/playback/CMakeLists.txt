@@ -4,19 +4,25 @@ add_custom_command(
           "${CMAKE_CURRENT_LIST_DIR}/README"
           "${ozz_media_directory}/bin/alain_skeleton.ozz"
           "${ozz_media_directory}/bin/alain_atlas.ozz"
+          "${ozz_media_directory}/bin/arnaud_mesh.ozz"
   OUTPUT  "${CMAKE_CURRENT_BINARY_DIR}/README"
           "${CMAKE_CURRENT_BINARY_DIR}/media/alain_skeleton.ozz"
           "${CMAKE_CURRENT_BINARY_DIR}/media/alain_atlas.ozz"
+          "${CMAKE_CURRENT_BINARY_DIR}/media/arnaud_mesh.ozz"
   COMMAND ${CMAKE_COMMAND} -E make_directory media
   COMMAND ${CMAKE_COMMAND} -E copy "${CMAKE_CURRENT_LIST_DIR}/README" .
   COMMAND ${CMAKE_COMMAND} -E copy "${ozz_media_directory}/bin/alain_skeleton.ozz" "./media"
-  COMMAND ${CMAKE_COMMAND} -E copy "${ozz_media_directory}/bin/alain_atlas.ozz" "./media")
+  COMMAND ${CMAKE_COMMAND} -E copy "${ozz_media_directory}/bin/alain_atlas.ozz" "./media"
+  COMMAND ${CMAKE_COMMAND} -E copy "${ozz_media_directory}/bin/arnaud_mesh.ozz" "./media")
 
 add_executable(sample_playback
   sample_playback.cc
+  cwrapper.h
+  cwrapper.cc
   "${CMAKE_CURRENT_BINARY_DIR}/README"
   "${CMAKE_CURRENT_BINARY_DIR}/media/alain_skeleton.ozz"
-  "${CMAKE_CURRENT_BINARY_DIR}/media/alain_atlas.ozz")
+  "${CMAKE_CURRENT_BINARY_DIR}/media/alain_atlas.ozz"
+  "${CMAKE_CURRENT_BINARY_DIR}/media/arnaud_mesh.ozz")
 target_link_libraries(sample_playback
   sample_framework)
 
