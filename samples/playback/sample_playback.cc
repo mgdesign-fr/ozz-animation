@@ -42,13 +42,15 @@ class LoadSampleApplication : public ozz::sample::Application
   virtual bool OnUpdate(float _dt)
   {
     // Updates current animation time.
-    return update(data, _dt);
+    update(data, _dt);
+    return true;
   }
 
   virtual bool OnDisplay(ozz::sample::Renderer* _renderer)
   {
     // Samples animation, transforms to model space and renders.
-    return render(data, _renderer);
+    render(data, _renderer);
+    return true;
   }
 
   virtual bool OnInitialize()
