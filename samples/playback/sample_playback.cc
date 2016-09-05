@@ -44,6 +44,7 @@
 #include "framework/renderer.h"
 #include "framework/imgui.h"
 #include "framework/utils.h"
+#include "framework/mesh.h"
 
 // Skeleton archive can be specified as an option.
 OZZ_OPTIONS_DECLARE_STRING(
@@ -57,6 +58,13 @@ OZZ_OPTIONS_DECLARE_STRING(
   animation,
   "Path to the animation (ozz archive format).",
   "media/alain_atlas.ozz",
+  false)
+
+// Mesh archive can be specified as an option.
+OZZ_OPTIONS_DECLARE_STRING(
+  mesh,
+  "Path to the skinned mesh (ozz archive format).",
+  "media/arnaud_mesh.ozz",
   false)
 
 class LoadSampleApplication : public ozz::sample::Application {
@@ -90,14 +98,23 @@ class LoadSampleApplication : public ozz::sample::Application {
       return false;
     }
 
+    // Update skinning matrices latest blending stage output.
+    assert(models_.Count() == skinning_matrices_.Count() &&
+           models_.Count() == mesh_.inverse_bind_poses.size());
+
+    // Builds skinning matrices, based on the output of the animation stage.
+    for (size_t i = 0; i < models_.Count(); ++i) {
+      skinning_matrices_[i] = models_[i] * mesh_.inverse_bind_poses[i];
+    }
+
     return true;
   }
 
   // Samples animation, transforms to model space and renders.
   virtual bool OnDisplay(ozz::sample::Renderer* _renderer) {
-    return _renderer->DrawPosture(skeleton_,
-                                  models_,
-                                  ozz::math::Float4x4::identity());
+    return _renderer->DrawSkinnedMesh(mesh_,
+                                      skinning_matrices_,
+                                      ozz::math::Float4x4::identity());
   }
 
   virtual bool OnInitialize() {
@@ -112,12 +129,26 @@ class LoadSampleApplication : public ozz::sample::Application {
     if (!ozz::sample::LoadAnimation(OPTIONS_animation, &animation_)) {
         return false;
     }
+    
+    const int num_joints = skeleton_.num_joints();
+
+    // Reading skinned mesh.
+    if (!ozz::sample::LoadMesh(OPTIONS_mesh, &mesh_)) {
+      return false;
+    }
+
+    // The number of joints of the mesh needs to match skeleton.
+    if (mesh_.num_joints() != num_joints) {
+      ozz::log::Err() << "The provided mesh doesn't match skeleton "
+        "(joint count mismatch)." << std::endl;
+      return false;
+    }
 
     // Allocates runtime buffers.
     const int num_soa_joints = skeleton_.num_soa_joints();
     locals_ = allocator->AllocateRange<ozz::math::SoaTransform>(num_soa_joints);
-    const int num_joints = skeleton_.num_joints();
     models_ = allocator->AllocateRange<ozz::math::Float4x4>(num_joints);
+    skinning_matrices_ = allocator-> AllocateRange<ozz::math::Float4x4>(num_joints);
 
     // Allocates a cache that matches animation requirements.
     cache_ = allocator->New<ozz::animation::SamplingCache>(num_joints);
@@ -129,6 +160,7 @@ class LoadSampleApplication : public ozz::sample::Application {
     ozz::memory::Allocator* allocator = ozz::memory::default_allocator();
     allocator->Deallocate(locals_);
     allocator->Deallocate(models_);
+    allocator->Deallocate(skinning_matrices_);
     allocator->Delete(cache_);
   }
 
@@ -159,6 +191,9 @@ class LoadSampleApplication : public ozz::sample::Application {
 
   // Runtime animation.
   ozz::animation::Animation animation_;
+  
+  // The mesh used by the sample.
+  ozz::sample::Mesh mesh_;
 
   // Sampling cache.
   ozz::animation::SamplingCache* cache_;
@@ -168,6 +203,10 @@ class LoadSampleApplication : public ozz::sample::Application {
 
   // Buffer of model space matrices.
   ozz::Range<ozz::math::Float4x4> models_;
+  
+  // Buffer of skinning matrices, result of the joint multiplication of the
+  // inverse bind pose with the model space matrix.
+  ozz::Range<ozz::math::Float4x4> skinning_matrices_;
 };
 
 int main(int _argc, const char** _argv) {
