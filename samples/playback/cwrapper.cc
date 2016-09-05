@@ -36,7 +36,7 @@ struct Data
   Entity entities[CONFIG_NUM_ENTITIES];
 };
 
-Data* initialize()
+Data* initialize(Config* config)
 {
   bool success = true;
 
@@ -44,20 +44,20 @@ Data* initialize()
   
   // Reading skeletons.
   for(uint32_t skeletonId = 0; skeletonId < CONFIG_NUM_SKELETONS; ++skeletonId)
-    success &= ozz::sample::LoadSkeleton("media/alain_skeleton.ozz", &data->skeletons[skeletonId]);
+    success &= ozz::sample::LoadSkeleton(config->skeletonPaths[skeletonId], &data->skeletons[skeletonId]);
 
   if(success)
   {
     // Reading animations.
     for(uint32_t animationId = 0; animationId < CONFIG_NUM_ANIMATIONS; ++animationId)
-      success &= ozz::sample::LoadAnimation("media/alain_atlas.ozz", &data->animations[animationId]);
+      success &= ozz::sample::LoadAnimation(config->animationPaths[animationId], &data->animations[animationId]);
   }
 
   if(success)
   {
     // Reading meshs.
     for(uint32_t meshId = 0; meshId < CONFIG_NUM_MESHS; ++meshId)
-      success &= ozz::sample::LoadMesh("media/arnaud_mesh.ozz", &data->meshs[meshId]);
+      success &= ozz::sample::LoadMesh(config->meshsPaths[meshId], &data->meshs[meshId]);
   }
 
   if(success)
@@ -67,10 +67,11 @@ Data* initialize()
     for(uint32_t entityId = 0; entityId < CONFIG_NUM_ENTITIES; ++entityId)
     {
       Entity& entity = data->entities[entityId];
-      entity.skeletonId = 0;
-      entity.animationId = 0;
-      entity.meshId = 0;
-      
+      EntityConfig& entityConfig = config->entities[entityId];
+      entity.skeletonId = entityConfig.skeletonId;
+      entity.animationId = entityConfig.animationId;
+      entity.meshId = entityConfig.meshId;
+
       const int num_joints = data->skeletons[entity.skeletonId].num_joints();
       const int num_soa_joints = data->skeletons[entity.skeletonId].num_soa_joints();
 
@@ -90,7 +91,18 @@ Data* initialize()
       entity.cache = allocator->New<ozz::animation::SamplingCache>(num_joints);
 
       // Entity world transform
-      entity.transform = ozz::math::Float4x4::identity();
+      if(entityConfig.transform == NULL)
+      {
+        // entity.transform = ozz::math::Float4x4::identity();
+        //TEST
+        ozz::math::SimdFloat4 translationOffset = ozz::math::simd_float4::Load(1.0f * entityId, 0.0f, 0.0f, 0.0f);
+        entity.transform = ozz::math::Float4x4::Translation(translationOffset);
+      }
+      else
+      {
+        // TODO
+        entity.transform = ozz::math::Float4x4::identity();
+      }
     }
   }
 

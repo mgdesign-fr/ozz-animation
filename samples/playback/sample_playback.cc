@@ -55,7 +55,7 @@ class LoadSampleApplication : public ozz::sample::Application
 
   virtual bool OnInitialize()
   {
-    data = initialize();
+    data = initialize(&defaultConfiguration);
     return (data != NULL);
   }
 
