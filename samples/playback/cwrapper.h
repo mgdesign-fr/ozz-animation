@@ -24,9 +24,9 @@ struct EntityConfig
 //-----------------------------------------------------------------------------
 struct Config
 {
-  char* skeletonPaths[CONFIG_MAX_SKELETONS + 1];   // \0 to mark the last skeleton path of the list
-  char* animationPaths[CONFIG_MAX_ANIMATIONS + 1]; // \0 to mark the last animation path of the list
-  char* meshsPaths[CONFIG_MAX_MESHS + 1];          // \0 to mark the last mesh path of the list
+  char* skeletonPaths[CONFIG_MAX_SKELETONS];   // optionnal \0 to mark the last skeleton path of the list
+  char* animationPaths[CONFIG_MAX_ANIMATIONS]; // optionnal \0 to mark the last animation path of the list
+  char* meshsPaths[CONFIG_MAX_MESHS];          // optionnal \0 to mark the last mesh path of the list
   EntityConfig* entities;
   unsigned int entitiesCount;
 };
@@ -38,9 +38,9 @@ static float defaultTransformIdentity[16] = {1.0f, 0.0f, 0.0f, 0.0f,
                                              0.0f, 0.0f, 0.0f, 1.0f};
 static EntityConfig defaultEntitiesConfig[] = { {0, 0, 0, defaultTransformIdentity, 0.0f}, {0, 0, 0, defaultTransformIdentity, 7.0f} };
 static Config defaultConfiguration = {
-                                       {"media/alain_skeleton.ozz", 0},
-                                       {"media/alain_atlas.ozz", 0},
-                                       {"media/arnaud_mesh.ozz", 0},
+                                       {"media/alain_skeleton.ozz"},
+                                       {"media/alain_atlas.ozz"},
+                                       {"media/arnaud_mesh.ozz"},
                                        defaultEntitiesConfig,
                                        sizeof(defaultEntitiesConfig) / sizeof(EntityConfig)
                                      };
