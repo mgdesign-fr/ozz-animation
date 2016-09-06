@@ -327,7 +327,7 @@ void rendererDrawSkinnedMesh(RendererData* rendererData, ozz::math::Float4x4& vi
     {
       // Optimal path used when the right number of colors is provided.
       memcpy(ozz::PointerStride(vbo_map, colors_offset + processed_vertex_count * colors_stride),
-             ozz::PointerStride(array_begin(part.colors), colors_offset + processed_vertex_count * colors_stride),
+             array_begin(part.colors),
              part_vertex_count * colors_stride);
     }
     else
@@ -372,7 +372,7 @@ void rendererDrawSkinnedMesh(RendererData* rendererData, ozz::math::Float4x4& vi
                                      viewProjMatrix,
                                      positions_stride, positions_offset,
                                      normals_stride, normals_offset,
-                                     colors_stride, colors_offset,
+                                     colors_stride, colors_offset, // TODO: virer ça.
                                      uvs_stride, uvs_offset);
 
   CWRAPPER_GL(BindBuffer(GL_ARRAY_BUFFER, 0));
