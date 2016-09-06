@@ -29,7 +29,12 @@
 #include "framework/imgui.h"
 #include "framework/utils.h"
 
+#define OZZ_INCLUDE_PRIVATE_HEADER
+#include "framework/internal/renderer_impl.h"
+#include "framework/internal/camera.h"
+
 #include "cwrapper.h"
+#include "cwrapperUtils.h"
 
 class LoadSampleApplication : public ozz::sample::Application
 {
@@ -49,7 +54,12 @@ class LoadSampleApplication : public ozz::sample::Application
   virtual bool OnDisplay(ozz::sample::Renderer* _renderer)
   {
     // Samples animation, transforms to model space and renders.
-    render(data, _renderer);
+    ozz::sample::internal::Camera* camera = static_cast<ozz::sample::internal::RendererImpl*>(_renderer)->camera();
+    ozz::math::Float4x4 cameraViewProj = camera->projection() * camera->view();
+    
+    float viewProjMatrix[16];
+    render(data, ozzMatrixToFloatPtr(cameraViewProj, viewProjMatrix));
+
     return true;
   }
 

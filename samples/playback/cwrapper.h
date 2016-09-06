@@ -1,3 +1,7 @@
+
+#ifndef OZZ_C_WRAPPER
+#define OZZ_C_WRAPPER
+
 //-----------------------------------------------------------------------------
 #if defined(__cplusplus)
 #	define OZZ_ANIMATION_C_API extern "C"
@@ -58,4 +62,6 @@ OZZ_ANIMATION_C_API void dispose(Data* data);
 OZZ_ANIMATION_C_API void update(Data* data, float _dt);
 
 //-----------------------------------------------------------------------------
-OZZ_ANIMATION_C_API void render(Data* data, void* _renderer);
+OZZ_ANIMATION_C_API void render(Data* data, float* viewProjMatrix);
+
+#endif // OZZ_C_WRAPPER

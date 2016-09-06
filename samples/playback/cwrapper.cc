@@ -1,4 +1,6 @@
 #include "cwrapper.h"
+#include "cwrapperUtils.h"
+#include "cwrapperRenderer.h"
 
 #include <ozz/base/log.h>
 #include <ozz/base/maths/vec_float.h>
@@ -15,6 +17,7 @@
 #include <framework/renderer.h>
 #include <framework/utils.h>
 
+//-----------------------------------------------------------------------------
 struct Entity
 {
   ozz::math::Float4x4 transform;
@@ -28,8 +31,10 @@ struct Entity
   uint32_t meshId;
 };
 
+//-----------------------------------------------------------------------------
 struct Data
 {
+  RendererData* rendererData;
   ozz::animation::Skeleton skeletons[CONFIG_MAX_SKELETONS];
   ozz::animation::Animation animations[CONFIG_MAX_ANIMATIONS];
   ozz::sample::Mesh meshs[CONFIG_MAX_MESHS];
@@ -37,10 +42,12 @@ struct Data
   uint32_t entitiesCount;
 };
 
+//-----------------------------------------------------------------------------
 Data* initialize(Config* config)
 {
   bool success = true;
   Data* data = new Data();
+  data->rendererData = rendererInitialize();
   
   // NB, en plus de servir de compteurs, ces variables stockent aussi le nombre total de ces éléments une fois chargés.
   uint32_t skeletonId = 0;
@@ -121,13 +128,8 @@ Data* initialize(Config* config)
       entity.cache = allocator->New<ozz::animation::SamplingCache>(num_joints);
 
       // Entity world transform
-      // ozz est column major convention comme rtgu (comme gl), donc on peut charger directement comme ça:
-      entity.transform.cols[0] = ozz::math::simd_float4::LoadPtrU(&entityConfig.transform[0]);
-      entity.transform.cols[1] = ozz::math::simd_float4::LoadPtrU(&entityConfig.transform[4]);
-      entity.transform.cols[2] = ozz::math::simd_float4::LoadPtrU(&entityConfig.transform[8]);
-      entity.transform.cols[3] = ozz::math::simd_float4::LoadPtrU(&entityConfig.transform[12]);
-      //entity.transform = ozz::math::Float4x4::identity();
-      
+      floatPtrToOzzMatrix(entityConfig.transform, entity.transform);
+
       // Entity animation offset.
       entity.controller.set_time(entityConfig.timeOffset);
     }
@@ -144,6 +146,7 @@ Data* initialize(Config* config)
   return data;
 }
 
+//-----------------------------------------------------------------------------
 void dispose(Data* data)
 {
   ozz::memory::Allocator* allocator = ozz::memory::default_allocator();
@@ -155,9 +158,17 @@ void dispose(Data* data)
     allocator->Deallocate(entity.skinning_matrices);
     allocator->Delete(entity.cache);
   }
+
+  if(data->rendererData != NULL)
+  {
+    rendererDispose(data->rendererData);
+    data->rendererData = NULL;
+  }
+
   delete(data);
 }
 
+//-----------------------------------------------------------------------------
 void update(Data* data, float _dt)
 {
   for(uint32_t entityId = 0; entityId < data->entitiesCount; ++entityId)
@@ -195,16 +206,18 @@ void update(Data* data, float _dt)
   }
 }
 
-void render(Data* data, void* _renderer)
+//-----------------------------------------------------------------------------
+void render(Data* data, float* viewProjMatrix)
 {
-  ozz::sample::Renderer* rendererInstance = (ozz::sample::Renderer*)_renderer;
+  // Setup view & proj matrix
+  ozz::math::Float4x4 viewProj;
+  floatPtrToOzzMatrix(viewProjMatrix, viewProj);
+
+  // Render meshs
   for(uint32_t entityId = 0; entityId < data->entitiesCount; ++entityId)
   {
     Entity& entity = data->entities[entityId];
     ozz::sample::Mesh& entityMesh = data->meshs[entity.meshId];
-
-    rendererInstance->DrawSkinnedMesh(entityMesh,
-                                      entity.skinning_matrices,
-                                      entity.transform);
+    rendererDrawSkinnedMesh(data->rendererData, viewProj, entityMesh, entity.skinning_matrices, entity.transform);
   }
 }

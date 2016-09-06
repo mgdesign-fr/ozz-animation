@@ -19,10 +19,22 @@ add_executable(sample_playback
   sample_playback.cc
   cwrapper.h
   cwrapper.cc
+  cwrapperUtils.h
+  cwrapperUtils.cc
+  cwrapperRenderer.h
+  cwrapperRenderer.cc
   "${CMAKE_CURRENT_BINARY_DIR}/README"
   "${CMAKE_CURRENT_BINARY_DIR}/media/alain_skeleton.ozz"
   "${CMAKE_CURRENT_BINARY_DIR}/media/alain_atlas.ozz"
   "${CMAKE_CURRENT_BINARY_DIR}/media/arnaud_mesh.ozz")
+ 
+# CWrapper requires OpenGL package.
+if(NOT EMSCRIPTEN)
+  include_directories(${CMAKE_SOURCE_DIR}/extern/glfw/include)
+  find_package(OpenGL REQUIRED)
+  include_directories(${OPENGL_INCLUDE_DIR})
+endif()
+  
 target_link_libraries(sample_playback
   sample_framework)
 
