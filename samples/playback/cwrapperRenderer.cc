@@ -1,5 +1,4 @@
 #include "cwrapperRenderer.h"
-#include "cwrapperShader.h"
 #include "cwrapper.h"
 
 #define STB_IMAGE_IMPLEMENTATION
@@ -11,6 +10,9 @@
 
 #include <ozz/base/maths/math_ex.h>
 #include <ozz/geometry/runtime/skinning_job.h>
+
+// Inclure après <Windows.h>
+#include "cwrapperShader.h"
 
 //-----------------------------------------------------------------------------
 // Helper macro used to declare extension function pointer.
