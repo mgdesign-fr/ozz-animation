@@ -24,6 +24,8 @@ add_executable(sample_playback
   stb_image.h
   cwrapperRenderer.h
   cwrapperRenderer.cc
+  cwrapperShader.h
+  cwrapperShader.cc
   "${CMAKE_CURRENT_BINARY_DIR}/README"
   "${CMAKE_CURRENT_BINARY_DIR}/media/alain_skeleton.ozz"
   "${CMAKE_CURRENT_BINARY_DIR}/media/alain_atlas.ozz"
