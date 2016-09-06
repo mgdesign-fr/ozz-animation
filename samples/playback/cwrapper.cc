@@ -29,6 +29,7 @@ struct Entity
   uint32_t skeletonId;
   uint32_t animationId;
   uint32_t meshId;
+  uint32_t textureId;
 };
 
 //-----------------------------------------------------------------------------
@@ -47,12 +48,23 @@ Data* initialize(Config* config)
 {
   bool success = true;
   Data* data = new Data();
+  
+  // Init le pointeur "cache" à null pour éviter les crashs si problème à l'init.
+  uint32_t entityId = 0;
+  for(entityId = 0; entityId < config->entitiesCount; ++entityId)
+  {
+    Entity& entity = data->entities[entityId];
+    entity.cache = NULL;
+  }
+
+  // Renderer GL
   data->rendererData = rendererInitialize();
   
   // NB, en plus de servir de compteurs, ces variables stockent aussi le nombre total de ces éléments une fois chargés.
   uint32_t skeletonId = 0;
   uint32_t animationId = 0;
   uint32_t meshId = 0;
+  uint32_t textureId = 0;
 
   // Reading skeletons.
   for(skeletonId = 0; skeletonId < CONFIG_MAX_SKELETONS; ++skeletonId)
@@ -92,9 +104,21 @@ Data* initialize(Config* config)
 
   if(success)
   {
+    // Reading textures.
+    for(textureId = 0; textureId < CONFIG_MAX_TEXTURES; ++textureId)
+    {
+      char* texturePath = config->texturesPaths[textureId];
+      if(texturePath == NULL)
+        break;
+
+      success &= rendererLoadTexture(data->rendererData, texturePath, textureId);
+    }
+  }
+
+  if(success)
+  {
     // Building entities
     assert(config->entitiesCount <= CONFIG_MAX_ENTITIES);
-    uint32_t entityId = 0;
     ozz::memory::Allocator* allocator = ozz::memory::default_allocator();
     for(entityId = 0; entityId < config->entitiesCount; ++entityId)
     {
@@ -104,10 +128,12 @@ Data* initialize(Config* config)
       assert(entityConfig.skeletonId < skeletonId);
       assert(entityConfig.animationId < animationId);
       assert(entityConfig.meshId < meshId);
+      assert(entityConfig.textureId < textureId);
 
       entity.skeletonId = entityConfig.skeletonId;
       entity.animationId = entityConfig.animationId;
       entity.meshId = entityConfig.meshId;
+      entity.textureId = entityConfig.textureId;
 
       const int num_joints = data->skeletons[entity.skeletonId].num_joints();
       const int num_soa_joints = data->skeletons[entity.skeletonId].num_soa_joints();
@@ -150,17 +176,22 @@ Data* initialize(Config* config)
 void dispose(Data* data)
 {
   ozz::memory::Allocator* allocator = ozz::memory::default_allocator();
-  for(uint32_t entityId = 0; entityId < data->entitiesCount; ++entityId)
+  for(uint32_t entityId = 0; entityId < CONFIG_MAX_ENTITIES; ++entityId)
   {
     Entity& entity = data->entities[entityId];
-    allocator->Deallocate(entity.locals);
-    allocator->Deallocate(entity.models);
-    allocator->Deallocate(entity.skinning_matrices);
-    allocator->Delete(entity.cache);
+    if(entity.cache != NULL)
+    {
+      // Si entity cache est null, c'est que l'entité n'a pas été initialisée.
+      allocator->Deallocate(entity.locals);
+      allocator->Deallocate(entity.models);
+      allocator->Deallocate(entity.skinning_matrices);
+      allocator->Delete(entity.cache);
+    }
   }
 
   if(data->rendererData != NULL)
   {
+    // NB: textures are deallocated by rendererDispose function.
     rendererDispose(data->rendererData);
     data->rendererData = NULL;
   }
@@ -218,6 +249,6 @@ void render(Data* data, float* viewProjMatrix)
   {
     Entity& entity = data->entities[entityId];
     ozz::sample::Mesh& entityMesh = data->meshs[entity.meshId];
-    rendererDrawSkinnedMesh(data->rendererData, viewProj, entityMesh, entity.skinning_matrices, entity.transform);
+    rendererDrawSkinnedMesh(data->rendererData, viewProj, entityMesh, entity.textureId, entity.skinning_matrices, entity.transform);
   }
 }

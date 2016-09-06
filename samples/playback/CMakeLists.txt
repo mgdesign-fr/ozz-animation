@@ -21,6 +21,7 @@ add_executable(sample_playback
   cwrapper.cc
   cwrapperUtils.h
   cwrapperUtils.cc
+  stb_image.h
   cwrapperRenderer.h
   cwrapperRenderer.cc
   "${CMAKE_CURRENT_BINARY_DIR}/README"

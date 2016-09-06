@@ -1,10 +1,14 @@
 #include "cwrapperRenderer.h"
+#include "cwrapper.h"
+
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
 
 #include <Windows.h>
 #include <GL/gl.h>
 #include <GL/glext.h>
 
-#include "ozz/base/maths/math_ex.h"
+#include <ozz/base/maths/math_ex.h>
 #include <ozz/geometry/runtime/skinning_job.h>
 
 // TODO: à supprimer!
@@ -58,6 +62,26 @@ const float kDefaultNormalArray[][3] = {
   {0.f, 1.f, 0.f}, {0.f, 1.f, 0.f}, {0.f, 1.f, 0.f}, {0.f, 1.f, 0.f},
   {0.f, 1.f, 0.f}, {0.f, 1.f, 0.f}, {0.f, 1.f, 0.f}, {0.f, 1.f, 0.f},
   {0.f, 1.f, 0.f}, {0.f, 1.f, 0.f}, {0.f, 1.f, 0.f}, {0.f, 1.f, 0.f}};
+
+//-----------------------------------------------------------------------------
+// TODO: à supprimer!
+const float kDefaultUVsArray[][2] = {
+  { 0.f, 0.f },{ 0.f, 0.f },{ 0.f, 0.f },{ 0.f, 0.f },
+  { 0.f, 0.f },{ 0.f, 0.f },{ 0.f, 0.f },{ 0.f, 0.f },
+  { 0.f, 0.f },{ 0.f, 0.f },{ 0.f, 0.f },{ 0.f, 0.f },
+  { 0.f, 0.f },{ 0.f, 0.f },{ 0.f, 0.f },{ 0.f, 0.f },
+  { 0.f, 0.f },{ 0.f, 0.f },{ 0.f, 0.f },{ 0.f, 0.f },
+  { 0.f, 0.f },{ 0.f, 0.f },{ 0.f, 0.f },{ 0.f, 0.f },
+  { 0.f, 0.f },{ 0.f, 0.f },{ 0.f, 0.f },{ 0.f, 0.f },
+  { 0.f, 0.f },{ 0.f, 0.f },{ 0.f, 0.f },{ 0.f, 0.f },
+  { 0.f, 0.f },{ 0.f, 0.f },{ 0.f, 0.f },{ 0.f, 0.f },
+  { 0.f, 0.f },{ 0.f, 0.f },{ 0.f, 0.f },{ 0.f, 0.f },
+  { 0.f, 0.f },{ 0.f, 0.f },{ 0.f, 0.f },{ 0.f, 0.f },
+  { 0.f, 0.f },{ 0.f, 0.f },{ 0.f, 0.f },{ 0.f, 0.f },
+  { 0.f, 0.f },{ 0.f, 0.f },{ 0.f, 0.f },{ 0.f, 0.f },
+  { 0.f, 0.f },{ 0.f, 0.f },{ 0.f, 0.f },{ 0.f, 0.f },
+  { 0.f, 0.f },{ 0.f, 0.f },{ 0.f, 0.f },{ 0.f, 0.f },
+  { 0.f, 0.f },{ 0.f, 0.f },{ 0.f, 0.f },{ 0.f, 0.f } };
 
 //-----------------------------------------------------------------------------
 // Helper macro used to declare extension function pointer.
@@ -139,6 +163,7 @@ private:
 //-----------------------------------------------------------------------------
 struct RendererData
 {
+  GLuint glTextures[CONFIG_MAX_TEXTURES];
   GLuint dynamic_array_bo;
   GLuint dynamic_index_bo;
   ScratchBuffer scratch_buffer;
@@ -180,12 +205,16 @@ void rendererDispose(RendererData* rendererData)
   allocator->Delete(rendererData->ambient_shader);
   rendererData->ambient_shader = NULL;
 
+  // cleanup textures
+  for(unsigned int textureId=0; textureId < CONFIG_MAX_TEXTURES; ++textureId)
+    rendererUnloadTexture(rendererData, textureId);
+
   delete(rendererData);
   rendererData = NULL;
 }
 
 //-----------------------------------------------------------------------------
-void rendererDrawSkinnedMesh(RendererData* rendererData, ozz::math::Float4x4& viewProjMatrix, const ozz::sample::Mesh& mesh, const ozz::Range<ozz::math::Float4x4> skinning_matrices, const ozz::math::Float4x4& transform)
+void rendererDrawSkinnedMesh(RendererData* rendererData, ozz::math::Float4x4& viewProjMatrix, const ozz::sample::Mesh& mesh, const unsigned int textureId, const ozz::Range<ozz::math::Float4x4> skinning_matrices, const ozz::math::Float4x4& transform)
 {
   const int vertex_count = mesh.vertex_count();
 
@@ -203,8 +232,14 @@ void rendererDrawSkinnedMesh(RendererData* rendererData, ozz::math::Float4x4& vi
   const GLsizei colors_stride = sizeof(uint8_t) * 4;
   const GLsizei colors_size = vertex_count * colors_stride;
 
+  const GLsizei uvs_offset = colors_offset + colors_size;
+  const GLsizei uvs_stride = sizeof(float) * 2;
+  const GLsizei uvs_size = vertex_count * uvs_stride;
+  
+  const GLsizei fixed_data_size = colors_size + uvs_size;
+
   // Reallocate vertex buffer.
-  const GLsizei vbo_size = skinned_data_size + colors_size;
+  const GLsizei vbo_size = skinned_data_size + fixed_data_size;
   CWRAPPER_GL(BindBuffer(GL_ARRAY_BUFFER, rendererData->dynamic_array_bo));
   CWRAPPER_GL(BufferData(GL_ARRAY_BUFFER, vbo_size, NULL, GL_STREAM_DRAW));
   void* vbo_map = rendererData->scratch_buffer.Resize(vbo_size);
@@ -306,6 +341,25 @@ void rendererDrawSkinnedMesh(RendererData* rendererData, ozz::math::Float4x4& vi
       }
     }
 
+    // Handles uvs which aren't affected by skinning.
+    if (part_vertex_count == part.uvs.size() / 2)
+    {
+      // Optimal path used when the right number of uvs is provided.
+      memcpy(ozz::PointerStride(vbo_map, uvs_offset + processed_vertex_count * uvs_stride),
+             array_begin(part.uvs),
+             part_vertex_count * uvs_stride);
+    }
+    else 
+    {
+      // Un-optimal path used when the right number of uvs is not provided.
+      assert(sizeof(kDefaultUVsArray[0]) == uvs_stride);
+      for (size_t j = 0; j < part_vertex_count; j += OZZ_ARRAY_SIZE(kDefaultUVsArray))
+      {
+        const size_t this_loop_count = ozz::math::Min(OZZ_ARRAY_SIZE(kDefaultUVsArray), part_vertex_count - j);
+        memcpy(ozz::PointerStride(vbo_map, uvs_offset + (processed_vertex_count + j) * uvs_stride), kDefaultUVsArray, uvs_stride * this_loop_count);
+      }
+    }
+
     // Some more vertices were processed.
     processed_vertex_count += part_vertex_count;
   }
@@ -318,7 +372,8 @@ void rendererDrawSkinnedMesh(RendererData* rendererData, ozz::math::Float4x4& vi
                                      viewProjMatrix,
                                      positions_stride, positions_offset,
                                      normals_stride, normals_offset,
-                                     colors_stride, colors_offset);
+                                     colors_stride, colors_offset,
+                                     uvs_stride, uvs_offset);
 
   CWRAPPER_GL(BindBuffer(GL_ARRAY_BUFFER, 0));
 
@@ -326,12 +381,58 @@ void rendererDrawSkinnedMesh(RendererData* rendererData, ozz::math::Float4x4& vi
   const ozz::sample::Mesh::TriangleIndices& indices = mesh.triangle_indices;
   CWRAPPER_GL(BindBuffer(GL_ELEMENT_ARRAY_BUFFER, rendererData->dynamic_index_bo));
   CWRAPPER_GL(BufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(ozz::sample::Mesh::TriangleIndices::value_type), array_begin(indices), GL_STREAM_DRAW));
+  
+  // Binds texture
+  glBindTexture(GL_TEXTURE_2D, rendererData->glTextures[textureId]);
 
   // Draws the mesh.
   assert(sizeof(ozz::sample::Mesh::TriangleIndices::value_type) == 2);
   glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(indices.size()), GL_UNSIGNED_SHORT, 0);
 
   // Unbinds.
+  glBindTexture(GL_TEXTURE_2D, 0);
   CWRAPPER_GL(BindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0));
   rendererData->ambient_shader->Unbind();
+}
+
+//-----------------------------------------------------------------------------
+bool rendererLoadTexture(RendererData* rendererData, const char* texturePath, unsigned int textureId)
+{
+  bool success = false;
+  int imageWidth, imageHeight;
+  int imageBpp = 3;
+
+  // Open image
+  unsigned char* imageData = stbi_load(texturePath, &imageWidth, &imageHeight, &imageBpp, 0);
+  if(imageData != NULL)
+  {
+    // Create GL texture and load image data in it
+    glGenTextures(1, &rendererData->glTextures[textureId]);
+    glBindTexture(GL_TEXTURE_2D, rendererData->glTextures[textureId]);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexImage2D(GL_TEXTURE_2D,
+                 0, GL_RGB,
+                 imageWidth, imageHeight,
+                 0, GL_RGB, GL_UNSIGNED_BYTE, imageData);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    // All done free memory
+    stbi_image_free(imageData);
+    imageData = NULL;
+    success = true;
+  }
+
+  return success;
+}
+
+//-----------------------------------------------------------------------------
+void rendererUnloadTexture(RendererData* rendererData, unsigned int textureId)
+{
+  if(rendererData->glTextures[textureId] != 0)
+  {
+    glDeleteTextures(1, &rendererData->glTextures[textureId]);
+    rendererData->glTextures[textureId] = 0;
+  }
 }

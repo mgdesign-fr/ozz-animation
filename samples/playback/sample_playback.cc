@@ -71,8 +71,11 @@ class LoadSampleApplication : public ozz::sample::Application
 
   virtual void OnDestroy()
   {
-    dispose(data);
-    data = NULL;
+    if(data != NULL)
+    {
+      dispose(data);
+      data = NULL;
+    }
   }
 
   virtual bool OnGui(ozz::sample::ImGui* _im_gui) 
