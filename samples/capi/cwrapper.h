@@ -6,7 +6,11 @@
 #ifdef CAPI_BUILD_DLL
 #	define OZZ_ANIMATION_C_API extern "C" __declspec(dllexport)
 #else
-#	define OZZ_ANIMATION_C_API extern "C" 
+# ifdef __cplusplus
+#	  define OZZ_ANIMATION_C_API extern "C" 
+# else
+#	  define OZZ_ANIMATION_C_API 
+# endif
 #endif // CAPI_BUILD_DLL
 
 //-----------------------------------------------------------------------------
@@ -17,7 +21,7 @@
 #define CONFIG_MAX_ENTITIES 2
 
 //-----------------------------------------------------------------------------
-OZZ_ANIMATION_C_API struct EntityConfig
+struct EntityConfig
 {
   unsigned int skeletonId;
   unsigned int animationId;
@@ -28,7 +32,7 @@ OZZ_ANIMATION_C_API struct EntityConfig
 };
 
 //-----------------------------------------------------------------------------
-OZZ_ANIMATION_C_API struct Config
+struct Config
 {
   char* skeletonPaths[CONFIG_MAX_SKELETONS];   // optionnal \0 to mark the last skeleton path of the list
   char* animationPaths[CONFIG_MAX_ANIMATIONS]; // optionnal \0 to mark the last animation path of the list
@@ -54,7 +58,7 @@ static Config defaultConfiguration = {
                                      };
 
 //-----------------------------------------------------------------------------
-OZZ_ANIMATION_C_API struct Data;
+struct Data;
 
 //-----------------------------------------------------------------------------
 OZZ_ANIMATION_C_API Data* initialize(Config* config);
