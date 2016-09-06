@@ -17,19 +17,22 @@ add_custom_command(
 
 add_executable(sample_playback
   sample_playback.cc
-  cwrapper.h
-  cwrapper.cc
-  cwrapperUtils.h
-  cwrapperUtils.cc
-  stb_image.h
-  cwrapperRenderer.h
-  cwrapperRenderer.cc
-  cwrapperShader.h
-  cwrapperShader.cc
+  ../capi/cwrapper.h
+  ../capi/cwrapper.cc
+  ../capi/cwrapperUtils.h
+  ../capi/cwrapperUtils.cc
+  ../capi/stb_image.h
+  ../capi/cwrapperRenderer.h
+  ../capi/cwrapperRenderer.cc
+  ../capi/cwrapperShader.h
+  ../capi/cwrapperShader.cc
   "${CMAKE_CURRENT_BINARY_DIR}/README"
   "${CMAKE_CURRENT_BINARY_DIR}/media/alain_skeleton.ozz"
   "${CMAKE_CURRENT_BINARY_DIR}/media/alain_atlas.ozz"
   "${CMAKE_CURRENT_BINARY_DIR}/media/arnaud_mesh.ozz")
+  
+  
+include_directories(../capi)
  
 # CWrapper requires OpenGL package.
 if(NOT EMSCRIPTEN)

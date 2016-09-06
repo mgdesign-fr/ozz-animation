@@ -3,11 +3,11 @@
 #define OZZ_C_WRAPPER
 
 //-----------------------------------------------------------------------------
-#if defined(__cplusplus)
-#	define OZZ_ANIMATION_C_API extern "C"
+#ifdef CAPI_BUILD_DLL
+#	define OZZ_ANIMATION_C_API extern "C" __declspec(dllexport)
 #else
-#	define OZZ_ANIMATION_C_API
-#endif // defined(__cplusplus)
+#	define OZZ_ANIMATION_C_API extern "C" 
+#endif // CAPI_BUILD_DLL
 
 //-----------------------------------------------------------------------------
 #define CONFIG_MAX_SKELETONS 2
