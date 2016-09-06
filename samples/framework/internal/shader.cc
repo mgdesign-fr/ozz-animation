@@ -384,7 +384,7 @@ const char* kShaderAmbientFS =
   "  gl_FragColor = vec4(\n"
   "     lerp(alpha.yyy, vec3(bt.x, .3, bt.y), vec3(bt.z, .8, bt.w)), 1.);\n"
   "  gl_FragColor *= v_vertex_color;\n"
-  "  gl_FragColor *= texture2D(u_texture, v_vertex_uv);\n"
+  "  gl_FragColor *= texture2D(u_texture, vec2(v_vertex_uv.x, -v_vertex_uv.y));\n"
   "}\n";
 }
 
