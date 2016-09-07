@@ -102,10 +102,10 @@ struct RendererData
 };
 
 //-----------------------------------------------------------------------------
-RendererData* rendererInitialize()
+struct RendererData* rendererInitialize()
 {
   _rendererInitializeOpenGLExtensions();
-  RendererData* rendererData = new RendererData();
+  struct RendererData* rendererData = new RendererData();
   
   // Builds the dynamic vbo
   CWRAPPER_GL(GenBuffers(1, &rendererData->dynamic_array_bo));
@@ -118,7 +118,7 @@ RendererData* rendererInitialize()
 }
 
 //-----------------------------------------------------------------------------
-void rendererDispose(RendererData* rendererData)
+void rendererDispose(struct RendererData* rendererData)
 {
   if(rendererData->dynamic_array_bo)
   {
@@ -145,7 +145,7 @@ void rendererDispose(RendererData* rendererData)
 }
 
 //-----------------------------------------------------------------------------
-void rendererDrawSkinnedMesh(RendererData* rendererData, ozz::math::Float4x4& viewProjMatrix, const ozz::sample::Mesh& mesh, const unsigned int textureId, const ozz::Range<ozz::math::Float4x4> skinning_matrices, const ozz::math::Float4x4& transform)
+void rendererDrawSkinnedMesh(struct RendererData* rendererData, ozz::math::Float4x4& viewProjMatrix, const ozz::sample::Mesh& mesh, const unsigned int textureId, const ozz::Range<ozz::math::Float4x4> skinning_matrices, const ozz::math::Float4x4& transform)
 {
   const int vertex_count = mesh.vertex_count();
 
@@ -290,7 +290,7 @@ void rendererDrawSkinnedMesh(RendererData* rendererData, ozz::math::Float4x4& vi
 }
 
 //-----------------------------------------------------------------------------
-bool rendererLoadTexture(RendererData* rendererData, const char* texturePath, unsigned int textureId)
+bool rendererLoadTexture(struct RendererData* rendererData, const char* texturePath, unsigned int textureId)
 {
   bool success = false;
   int imageWidth, imageHeight;
@@ -322,7 +322,7 @@ bool rendererLoadTexture(RendererData* rendererData, const char* texturePath, un
 }
 
 //-----------------------------------------------------------------------------
-void rendererUnloadTexture(RendererData* rendererData, unsigned int textureId)
+void rendererUnloadTexture(struct RendererData* rendererData, unsigned int textureId)
 {
   if(rendererData->glTextures[textureId] != 0)
   {

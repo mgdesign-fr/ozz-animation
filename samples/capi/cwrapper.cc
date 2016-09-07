@@ -35,7 +35,7 @@ struct Entity
 //-----------------------------------------------------------------------------
 struct Data
 {
-  RendererData* rendererData;
+  struct RendererData* rendererData;
   ozz::animation::Skeleton skeletons[CONFIG_MAX_SKELETONS];
   ozz::animation::Animation animations[CONFIG_MAX_ANIMATIONS];
   ozz::sample::Mesh meshs[CONFIG_MAX_MESHS];
@@ -44,16 +44,16 @@ struct Data
 };
 
 //-----------------------------------------------------------------------------
-Data* initialize(Config* config)
+struct Data* initialize(struct Config* config)
 {
   bool success = true;
-  Data* data = new Data();
+  struct Data* data = new Data();
   
   // Init le pointeur "cache" à null pour éviter les crashs si problème à l'init.
   uint32_t entityId = 0;
   for(entityId = 0; entityId < config->entitiesCount; ++entityId)
   {
-    Entity& entity = data->entities[entityId];
+    struct Entity& entity = data->entities[entityId];
     entity.cache = NULL;
   }
 
@@ -122,8 +122,8 @@ Data* initialize(Config* config)
     ozz::memory::Allocator* allocator = ozz::memory::default_allocator();
     for(entityId = 0; entityId < config->entitiesCount; ++entityId)
     {
-      Entity& entity = data->entities[entityId];
-      EntityConfig& entityConfig = config->entities[entityId];
+      struct Entity& entity = data->entities[entityId];
+      struct EntityConfig& entityConfig = config->entities[entityId];
 
       assert(entityConfig.skeletonId < skeletonId);
       assert(entityConfig.animationId < animationId);
@@ -173,12 +173,12 @@ Data* initialize(Config* config)
 }
 
 //-----------------------------------------------------------------------------
-void dispose(Data* data)
+void dispose(struct Data* data)
 {
   ozz::memory::Allocator* allocator = ozz::memory::default_allocator();
   for(uint32_t entityId = 0; entityId < CONFIG_MAX_ENTITIES; ++entityId)
   {
-    Entity& entity = data->entities[entityId];
+    struct Entity& entity = data->entities[entityId];
     if(entity.cache != NULL)
     {
       // Si entity cache est null, c'est que l'entité n'a pas été initialisée.
@@ -200,11 +200,11 @@ void dispose(Data* data)
 }
 
 //-----------------------------------------------------------------------------
-void update(Data* data, float _dt)
+void update(struct Data* data, float _dt)
 {
   for(uint32_t entityId = 0; entityId < data->entitiesCount; ++entityId)
   {
-    Entity& entity = data->entities[entityId];
+    struct Entity& entity = data->entities[entityId];
     ozz::animation::Skeleton& entitySkeleton = data->skeletons[entity.skeletonId];
     ozz::animation::Animation& entityAnimation = data->animations[entity.animationId];
     ozz::sample::Mesh& entityMesh = data->meshs[entity.meshId];
@@ -238,7 +238,7 @@ void update(Data* data, float _dt)
 }
 
 //-----------------------------------------------------------------------------
-void render(Data* data, float* viewProjMatrix)
+void render(struct Data* data, float* viewProjMatrix)
 {
   // Setup view & proj matrix
   ozz::math::Float4x4 viewProj;
@@ -247,7 +247,7 @@ void render(Data* data, float* viewProjMatrix)
   // Render meshs
   for(uint32_t entityId = 0; entityId < data->entitiesCount; ++entityId)
   {
-    Entity& entity = data->entities[entityId];
+    struct Entity& entity = data->entities[entityId];
     ozz::sample::Mesh& entityMesh = data->meshs[entity.meshId];
     rendererDrawSkinnedMesh(data->rendererData, viewProj, entityMesh, entity.textureId, entity.skinning_matrices, entity.transform);
   }

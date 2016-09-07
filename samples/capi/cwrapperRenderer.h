@@ -8,18 +8,18 @@
 struct RendererData;
 
 //-----------------------------------------------------------------------------
-RendererData* rendererInitialize();
+struct RendererData* rendererInitialize();
 
 //-----------------------------------------------------------------------------
-void rendererDispose(RendererData* rendererData);
+void rendererDispose(struct RendererData* rendererData);
 
 //-----------------------------------------------------------------------------
-void rendererDrawSkinnedMesh(RendererData* rendererData, ozz::math::Float4x4& viewProjMatrix, const ozz::sample::Mesh& mesh, const unsigned int textureId, const ozz::Range<ozz::math::Float4x4> skinning_matrices, const ozz::math::Float4x4& transform);
+void rendererDrawSkinnedMesh(struct RendererData* rendererData, ozz::math::Float4x4& viewProjMatrix, const ozz::sample::Mesh& mesh, const unsigned int textureId, const ozz::Range<ozz::math::Float4x4> skinning_matrices, const ozz::math::Float4x4& transform);
 
 //-----------------------------------------------------------------------------
-bool rendererLoadTexture(RendererData* rendererData, const char* texturePath, unsigned int textureId);
+bool rendererLoadTexture(struct RendererData* rendererData, const char* texturePath, unsigned int textureId);
 
 //-----------------------------------------------------------------------------
-void rendererUnloadTexture(RendererData* rendererData, unsigned int textureId);
+void rendererUnloadTexture(struct RendererData* rendererData, unsigned int textureId);
 
 #endif // OZZ_C_WRAPPER_RENDERER
