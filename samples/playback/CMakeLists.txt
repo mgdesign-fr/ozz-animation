@@ -33,6 +33,7 @@ add_executable(sample_playback
   
   
 include_directories(${CMAKE_SOURCE_DIR}/capi)
+add_definitions(-DCAPI_BUILD_STATIC)
  
 # CWrapper requires OpenGL package.
 if(NOT EMSCRIPTEN)

@@ -3,15 +3,23 @@
 #define OZZ_C_WRAPPER
 
 //-----------------------------------------------------------------------------
-#ifdef CAPI_BUILD_DLL
-#	define OZZ_ANIMATION_C_API extern "C" __declspec(dllexport)
-#else
+#ifdef CAPI_BUILD_STATIC
 # ifdef __cplusplus
-#	  define OZZ_ANIMATION_C_API extern "C" __declspec(dllimport)
+#   define OZZ_ANIMATION_C_API extern "C"
 # else
-#	  define OZZ_ANIMATION_C_API __declspec(dllimport)
-# endif
-#endif // CAPI_BUILD_DLL
+#   define OZZ_ANIMATION_C_API
+# endif // __cplusplus
+#else
+# ifdef CAPI_BUILD_DLL
+#	  define OZZ_ANIMATION_C_API extern "C" __declspec(dllexport)
+# else
+#   ifdef __cplusplus
+#     define OZZ_ANIMATION_C_API extern "C" __declspec(dllimport)
+#   else
+#     define OZZ_ANIMATION_C_API __declspec(dllimport)
+#   endif // __cplusplus
+# endif // CAPI_BUILD_DLL
+#endif // CAPI_BUILD_STATIC
 
 //-----------------------------------------------------------------------------
 #define CONFIG_MAX_SKELETONS 2
@@ -49,10 +57,10 @@ static float defaultTransformIdentity[16] = {1.0f, 0.0f, 0.0f, 0.0f,
                                              0.0f, 0.0f, 0.0f, 1.0f};
 static struct EntityConfig defaultEntitiesConfig[] = { {0, 0, 0, 0, defaultTransformIdentity, 0.0f}, {1, 1, 1, 1, defaultTransformIdentity, 7.0f} };
 static struct Config defaultConfiguration = {
-                                              {"media/alain_skeleton.ozz", "media/ExportPersoRue01_skeleton.ozz"},
-                                              {"media/alain_atlas.ozz", "media/ExportPersoRue01_animation.ozz"},
-                                              {"media/arnaud_mesh.ozz", "media/ExportPersoRue01_mesh.ozz"},
-                                              {"media/UVW_man00.jpg", "media/UVW_man01_b.jpg"},
+                                              {"media/ExportPersoRue01_skeleton.ozz", "media/femme_skeleton.ozz"},
+                                              {"media/ExportPersoRue01_animation.ozz", "media/femme_animation.ozz"},
+                                              {"media/ExportPersoRue01_mesh.ozz", "media/femme_mesh.ozz"},
+                                              {"media/UVW_man00.jpg", "media/womanUVW02.jpg"},
                                               defaultEntitiesConfig,
                                               sizeof(defaultEntitiesConfig) / sizeof(struct EntityConfig)
                                             };
