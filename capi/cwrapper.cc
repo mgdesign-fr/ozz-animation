@@ -14,7 +14,6 @@
 #include <ozz/animation/runtime/skeleton.h>
 
 #include <framework/mesh.h>
-#include <framework/renderer.h>
 #include <framework/utils.h>
 
 //-----------------------------------------------------------------------------

@@ -11,8 +11,10 @@
 #include <ozz/base/maths/math_ex.h>
 #include <ozz/geometry/runtime/skinning_job.h>
 
+#ifndef CAPI_NO_SHADER
 // Inclure après <Windows.h>
 #include "cwrapperShader.h"
+#endif
 
 //-----------------------------------------------------------------------------
 // Helper macro used to declare extension function pointer.
@@ -98,7 +100,9 @@ struct RendererData
   GLuint dynamic_array_bo;
   GLuint dynamic_index_bo;
   ScratchBuffer scratch_buffer;
+#ifndef CAPI_NO_SHADER
   CWrapperShader* shader;
+#endif
 };
 
 //-----------------------------------------------------------------------------
@@ -111,8 +115,10 @@ struct RendererData* rendererInitialize()
   CWRAPPER_GL(GenBuffers(1, &rendererData->dynamic_array_bo));
   CWRAPPER_GL(GenBuffers(1, &rendererData->dynamic_index_bo));
 
+#ifndef CAPI_NO_SHADER
   rendererData->shader = CWrapperShader::Build();
   assert(rendererData->shader != NULL);
+#endif
 
   return rendererData;
 }
@@ -132,9 +138,11 @@ void rendererDispose(struct RendererData* rendererData)
     rendererData->dynamic_index_bo = 0;
   }
   
+#ifndef CAPI_NO_SHADER
   ozz::memory::Allocator* allocator = ozz::memory::default_allocator();
   allocator->Delete(rendererData->shader);
   rendererData->shader = NULL;
+#endif
 
   // cleanup textures
   for(unsigned int textureId=0; textureId < CONFIG_MAX_TEXTURES; ++textureId)
@@ -262,12 +270,14 @@ void rendererDrawSkinnedMesh(struct RendererData* rendererData, ozz::math::Float
   // Updates dynamic vertex buffer with skinned data.
   CWRAPPER_GL(BufferSubData(GL_ARRAY_BUFFER, 0, vbo_size, vbo_map));
 
+#ifndef CAPI_NO_SHADER
   // Binds shader with this array buffer.
   rendererData->shader->Bind(transform,
                              viewProjMatrix,
                              positions_stride, positions_offset,
                              normals_stride, normals_offset,
                              uvs_stride, uvs_offset);
+#endif
 
   CWRAPPER_GL(BindBuffer(GL_ARRAY_BUFFER, 0));
 
@@ -286,7 +296,10 @@ void rendererDrawSkinnedMesh(struct RendererData* rendererData, ozz::math::Float
   // Unbinds.
   glBindTexture(GL_TEXTURE_2D, 0);
   CWRAPPER_GL(BindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0));
+
+#ifndef CAPI_NO_SHADER
   rendererData->shader->Unbind();
+#endif
 }
 
 //-----------------------------------------------------------------------------
