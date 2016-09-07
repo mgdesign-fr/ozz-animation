@@ -65,3 +65,6 @@ add_subdirectory(samples)
 
 # Continues with the tests tree
 add_subdirectory(test)
+
+# MGD C API.
+add_subdirectory(capi)
