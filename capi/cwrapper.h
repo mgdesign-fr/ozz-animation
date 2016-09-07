@@ -7,9 +7,9 @@
 #	define OZZ_ANIMATION_C_API extern "C" __declspec(dllexport)
 #else
 # ifdef __cplusplus
-#	  define OZZ_ANIMATION_C_API extern "C" 
+#	  define OZZ_ANIMATION_C_API extern "C" __declspec(dllimport)
 # else
-#	  define OZZ_ANIMATION_C_API 
+#	  define OZZ_ANIMATION_C_API __declspec(dllimport)
 # endif
 #endif // CAPI_BUILD_DLL
 
@@ -54,7 +54,7 @@ static struct Config defaultConfiguration = {
                                               {"media/arnaud_mesh.ozz", "media/ExportPersoRue01_mesh.ozz"},
                                               {"media/UVW_man00.jpg", "media/UVW_man01_b.jpg"},
                                               defaultEntitiesConfig,
-                                              sizeof(defaultEntitiesConfig) / sizeof(EntityConfig)
+                                              sizeof(defaultEntitiesConfig) / sizeof(struct EntityConfig)
                                             };
 
 //-----------------------------------------------------------------------------
