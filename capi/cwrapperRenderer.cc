@@ -4,10 +4,6 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
-#include <Windows.h>
-#include <GL/gl.h>
-#include <GL/glext.h>
-
 #include <ozz/base/maths/math_ex.h>
 #include <ozz/geometry/runtime/skinning_job.h>
 
@@ -27,6 +23,29 @@ DECL_GL_EXT(glDeleteBuffers, PFNGLDELETEBUFFERSPROC);
 DECL_GL_EXT(glGenBuffers, PFNGLGENBUFFERSPROC);
 DECL_GL_EXT(glBufferData, PFNGLBUFFERDATAPROC);
 DECL_GL_EXT(glBufferSubData, PFNGLBUFFERSUBDATAPROC);
+#ifndef CAPI_NO_SHADER
+DECL_GL_EXT(glVertexAttribPointer, PFNGLVERTEXATTRIBPOINTERPROC);
+DECL_GL_EXT(glEnableVertexAttribArray, PFNGLENABLEVERTEXATTRIBARRAYPROC);
+DECL_GL_EXT(glUseProgram, PFNGLUSEPROGRAMPROC);
+DECL_GL_EXT(glUniformMatrix4fv, PFNGLUNIFORMMATRIX4FVPROC);
+DECL_GL_EXT(glAttachShader, PFNGLATTACHSHADERPROC);
+DECL_GL_EXT(glCompileShader, PFNGLCOMPILESHADERPROC);
+DECL_GL_EXT(glCreateProgram, PFNGLCREATEPROGRAMPROC);
+DECL_GL_EXT(glCreateShader, PFNGLCREATESHADERPROC);
+DECL_GL_EXT(glDeleteShader, PFNGLDELETESHADERPROC);
+DECL_GL_EXT(glGetShaderInfoLog, PFNGLGETSHADERINFOLOGPROC);
+DECL_GL_EXT(glGetShaderSource, PFNGLGETSHADERSOURCEPROC);
+DECL_GL_EXT(glLinkProgram, PFNGLLINKPROGRAMPROC);
+DECL_GL_EXT(glShaderSource, PFNGLSHADERSOURCEPROC);
+DECL_GL_EXT(glGetShaderiv, PFNGLGETSHADERIVPROC);
+DECL_GL_EXT(glGetProgramiv, PFNGLGETPROGRAMIVPROC);
+DECL_GL_EXT(glGetProgramInfoLog, PFNGLGETPROGRAMINFOLOGPROC);
+DECL_GL_EXT(glGetAttribLocation, PFNGLGETATTRIBLOCATIONPROC);
+DECL_GL_EXT(glGetUniformLocation, PFNGLGETUNIFORMLOCATIONPROC);
+DECL_GL_EXT(glDisableVertexAttribArray, PFNGLDISABLEVERTEXATTRIBARRAYPROC);
+DECL_GL_EXT(glDetachShader, PFNGLDETACHSHADERPROC);
+DECL_GL_EXT(glDeleteProgram, PFNGLDELETEPROGRAMPROC);
+#endif // CAPI_NO_SHADER
 #else
 #error "OpenGL 1_5 required"
 #endif  // GL_VERSION_1_5
@@ -47,19 +66,30 @@ void _rendererInitializeOpenGLExtensions()
   INIT_GL_EXT(glGenBuffers, PFNGLGENBUFFERSPROC);
   INIT_GL_EXT(glBufferData, PFNGLBUFFERDATAPROC);
   INIT_GL_EXT(glBufferSubData, PFNGLBUFFERSUBDATAPROC);
+#ifndef CAPI_NO_SHADER
+  INIT_GL_EXT(glVertexAttribPointer, PFNGLVERTEXATTRIBPOINTERPROC);
+  INIT_GL_EXT(glEnableVertexAttribArray, PFNGLENABLEVERTEXATTRIBARRAYPROC);
+  INIT_GL_EXT(glUseProgram, PFNGLUSEPROGRAMPROC);
+  INIT_GL_EXT(glUniformMatrix4fv, PFNGLUNIFORMMATRIX4FVPROC);
+  INIT_GL_EXT(glAttachShader, PFNGLATTACHSHADERPROC);
+  INIT_GL_EXT(glCompileShader, PFNGLCOMPILESHADERPROC);
+  INIT_GL_EXT(glCreateProgram, PFNGLCREATEPROGRAMPROC);
+  INIT_GL_EXT(glCreateShader, PFNGLCREATESHADERPROC);
+  INIT_GL_EXT(glDeleteShader, PFNGLDELETESHADERPROC);
+  INIT_GL_EXT(glGetShaderInfoLog, PFNGLGETSHADERINFOLOGPROC);
+  INIT_GL_EXT(glGetShaderSource, PFNGLGETSHADERSOURCEPROC);
+  INIT_GL_EXT(glLinkProgram, PFNGLLINKPROGRAMPROC);
+  INIT_GL_EXT(glShaderSource, PFNGLSHADERSOURCEPROC);
+  INIT_GL_EXT(glGetShaderiv, PFNGLGETSHADERIVPROC);
+  INIT_GL_EXT(glGetProgramiv, PFNGLGETPROGRAMIVPROC);
+  INIT_GL_EXT(glGetProgramInfoLog, PFNGLGETPROGRAMINFOLOGPROC);
+  INIT_GL_EXT(glGetAttribLocation, PFNGLGETATTRIBLOCATIONPROC);
+  INIT_GL_EXT(glGetUniformLocation, PFNGLGETUNIFORMLOCATIONPROC);
+  INIT_GL_EXT(glDisableVertexAttribArray, PFNGLDISABLEVERTEXATTRIBARRAYPROC);
+  INIT_GL_EXT(glDetachShader, PFNGLDETACHSHADERPROC);
+  INIT_GL_EXT(glDeleteProgram, PFNGLDELETEPROGRAMPROC);
+#endif // CAPI_NO_SHADER
 }
-
-//-----------------------------------------------------------------------------
-// Provides helper macro to test for glGetError on a gl call.
-#ifndef NDEBUG
-#define CWRAPPER_GL(_f) do{\
-  cwrapper_gl##_f;\
-  GLenum error = glGetError();\
-  assert(error == GL_NO_ERROR);\
-} while(void(0), 0)
-#else  // NDEBUG
-#define CWRAPPER_GL(_f) cwrapper_gl##_f
-#endif // NDEBUG
 
 //-----------------------------------------------------------------------------
 // Volatile memory buffer that can be used within function scope.

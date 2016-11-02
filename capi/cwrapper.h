@@ -26,7 +26,7 @@
 #define CONFIG_MAX_ANIMATIONS 2
 #define CONFIG_MAX_MESHS 2
 #define CONFIG_MAX_TEXTURES 2
-#define CONFIG_MAX_ENTITIES 1
+#define CONFIG_MAX_ENTITIES 2
 
 //-----------------------------------------------------------------------------
 struct EntityConfig

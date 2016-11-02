@@ -7,6 +7,8 @@ add_library(ozz-capi SHARED
   stb_image.h
   cwrapperRenderer.h
   cwrapperRenderer.cc
+  cwrapperShader.h
+  cwrapperShader.cc
   ../samples/framework/mesh.h
   ../samples/framework/mesh.cc
   ../samples/framework/utils.h
@@ -14,7 +16,7 @@ add_library(ozz-capi SHARED
   
 include_directories(${CMAKE_SOURCE_DIR}/samples)
 
-add_definitions(-DCAPI_BUILD_DLL -DCAPI_NO_SHADER)
+add_definitions(-DCAPI_BUILD_DLL)
   
 # CWrapper requires OpenGL package.
 include_directories(${CMAKE_SOURCE_DIR}/extern/glfw/include) # Ce dossier contient les includes GL!

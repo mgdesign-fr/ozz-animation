@@ -2,7 +2,24 @@
 #ifndef OZZ_C_WRAPPER_RENDERER
 #define OZZ_C_WRAPPER_RENDERER
 
+//-----------------------------------------------------------------------------
 #include <framework/mesh.h>
+
+#include <Windows.h>
+#include <GL/gl.h>
+#include <GL/glext.h>
+
+//-----------------------------------------------------------------------------
+// Provides helper macro to test for glGetError on a gl call.
+#ifndef NDEBUG
+#define CWRAPPER_GL(_f) do{\
+  cwrapper_gl##_f;\
+  GLenum error = glGetError();\
+  assert(error == GL_NO_ERROR);\
+} while(void(0), 0)
+#else  // NDEBUG
+#define CWRAPPER_GL(_f) cwrapper_gl##_f
+#endif // NDEBUG
 
 //-----------------------------------------------------------------------------
 struct RendererData;
