@@ -3,10 +3,6 @@
 #ifndef CAPI_NO_SHADER
 #include <ozz/base/maths/simd_math.h>
 
-// Convenient macro definition for specifying buffer offsets.
-#define GL_PTR_OFFSET(i) reinterpret_cast<void*>(static_cast<intptr_t>(i))
-
-
 //-----------------------------------------------------------------------------
 // Helper macro used to declare extension function pointer.
 #define SHADER_DECL_GL_EXT(_fct, _fct_type) extern _fct_type cwrapper_##_fct;

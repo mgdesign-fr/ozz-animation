@@ -78,6 +78,10 @@ OZZ_ANIMATION_C_API void dispose(struct Data* data);
 OZZ_ANIMATION_C_API void update(struct Data* data, float _dt);
 
 //-----------------------------------------------------------------------------
+#if CAPI_NO_SHADER
+OZZ_ANIMATION_C_API void render(struct Data* data, int position_attrib, int normal_attrib, int uv_attrib);
+#else
 OZZ_ANIMATION_C_API void render(struct Data* data, float* viewProjMatrix);
+#endif
 
 #endif // OZZ_C_WRAPPER

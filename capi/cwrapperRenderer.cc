@@ -23,9 +23,10 @@ DECL_GL_EXT(glDeleteBuffers, PFNGLDELETEBUFFERSPROC);
 DECL_GL_EXT(glGenBuffers, PFNGLGENBUFFERSPROC);
 DECL_GL_EXT(glBufferData, PFNGLBUFFERDATAPROC);
 DECL_GL_EXT(glBufferSubData, PFNGLBUFFERSUBDATAPROC);
-#ifndef CAPI_NO_SHADER
-DECL_GL_EXT(glVertexAttribPointer, PFNGLVERTEXATTRIBPOINTERPROC);
 DECL_GL_EXT(glEnableVertexAttribArray, PFNGLENABLEVERTEXATTRIBARRAYPROC);
+DECL_GL_EXT(glVertexAttribPointer, PFNGLVERTEXATTRIBPOINTERPROC);
+DECL_GL_EXT(glDisableVertexAttribArray, PFNGLDISABLEVERTEXATTRIBARRAYPROC);
+#ifndef CAPI_NO_SHADER
 DECL_GL_EXT(glUseProgram, PFNGLUSEPROGRAMPROC);
 DECL_GL_EXT(glUniformMatrix4fv, PFNGLUNIFORMMATRIX4FVPROC);
 DECL_GL_EXT(glAttachShader, PFNGLATTACHSHADERPROC);
@@ -42,7 +43,6 @@ DECL_GL_EXT(glGetProgramiv, PFNGLGETPROGRAMIVPROC);
 DECL_GL_EXT(glGetProgramInfoLog, PFNGLGETPROGRAMINFOLOGPROC);
 DECL_GL_EXT(glGetAttribLocation, PFNGLGETATTRIBLOCATIONPROC);
 DECL_GL_EXT(glGetUniformLocation, PFNGLGETUNIFORMLOCATIONPROC);
-DECL_GL_EXT(glDisableVertexAttribArray, PFNGLDISABLEVERTEXATTRIBARRAYPROC);
 DECL_GL_EXT(glDetachShader, PFNGLDETACHSHADERPROC);
 DECL_GL_EXT(glDeleteProgram, PFNGLDELETEPROGRAMPROC);
 #endif // CAPI_NO_SHADER
@@ -66,9 +66,10 @@ void _rendererInitializeOpenGLExtensions()
   INIT_GL_EXT(glGenBuffers, PFNGLGENBUFFERSPROC);
   INIT_GL_EXT(glBufferData, PFNGLBUFFERDATAPROC);
   INIT_GL_EXT(glBufferSubData, PFNGLBUFFERSUBDATAPROC);
-#ifndef CAPI_NO_SHADER
   INIT_GL_EXT(glVertexAttribPointer, PFNGLVERTEXATTRIBPOINTERPROC);
   INIT_GL_EXT(glEnableVertexAttribArray, PFNGLENABLEVERTEXATTRIBARRAYPROC);
+  INIT_GL_EXT(glDisableVertexAttribArray, PFNGLDISABLEVERTEXATTRIBARRAYPROC);
+#ifndef CAPI_NO_SHADER
   INIT_GL_EXT(glUseProgram, PFNGLUSEPROGRAMPROC);
   INIT_GL_EXT(glUniformMatrix4fv, PFNGLUNIFORMMATRIX4FVPROC);
   INIT_GL_EXT(glAttachShader, PFNGLATTACHSHADERPROC);
@@ -85,7 +86,6 @@ void _rendererInitializeOpenGLExtensions()
   INIT_GL_EXT(glGetProgramInfoLog, PFNGLGETPROGRAMINFOLOGPROC);
   INIT_GL_EXT(glGetAttribLocation, PFNGLGETATTRIBLOCATIONPROC);
   INIT_GL_EXT(glGetUniformLocation, PFNGLGETUNIFORMLOCATIONPROC);
-  INIT_GL_EXT(glDisableVertexAttribArray, PFNGLDISABLEVERTEXATTRIBARRAYPROC);
   INIT_GL_EXT(glDetachShader, PFNGLDETACHSHADERPROC);
   INIT_GL_EXT(glDeleteProgram, PFNGLDELETEPROGRAMPROC);
 #endif // CAPI_NO_SHADER
@@ -183,7 +183,11 @@ void rendererDispose(struct RendererData* rendererData)
 }
 
 //-----------------------------------------------------------------------------
+#if CAPI_NO_SHADER
+void rendererDrawSkinnedMesh(struct RendererData* rendererData, const ozz::sample::Mesh& mesh, const unsigned int textureId, const ozz::Range<ozz::math::Float4x4> skinning_matrices, const ozz::math::Float4x4& transform, GLint position_attrib, GLint normal_attrib, GLint uv_attrib)
+#else
 void rendererDrawSkinnedMesh(struct RendererData* rendererData, ozz::math::Float4x4& viewProjMatrix, const ozz::sample::Mesh& mesh, const unsigned int textureId, const ozz::Range<ozz::math::Float4x4> skinning_matrices, const ozz::math::Float4x4& transform)
+#endif
 {
   const int vertex_count = mesh.vertex_count();
 
@@ -300,7 +304,16 @@ void rendererDrawSkinnedMesh(struct RendererData* rendererData, ozz::math::Float
   // Updates dynamic vertex buffer with skinned data.
   CWRAPPER_GL(BufferSubData(GL_ARRAY_BUFFER, 0, vbo_size, vbo_map));
 
-#ifndef CAPI_NO_SHADER
+#if CAPI_NO_SHADER
+  CWRAPPER_GL(EnableVertexAttribArray(position_attrib));
+  CWRAPPER_GL(VertexAttribPointer(position_attrib, 3, GL_FLOAT, GL_FALSE, positions_stride, GL_PTR_OFFSET(positions_offset)));
+
+  CWRAPPER_GL(EnableVertexAttribArray(normal_attrib));
+  CWRAPPER_GL(VertexAttribPointer(normal_attrib, 3, GL_FLOAT, GL_TRUE, normals_stride, GL_PTR_OFFSET(normals_offset)));
+
+  CWRAPPER_GL(EnableVertexAttribArray(uv_attrib));
+  CWRAPPER_GL(VertexAttribPointer(uv_attrib, 2, GL_FLOAT, GL_FALSE, uvs_stride, GL_PTR_OFFSET(uvs_offset)));
+#else
   // Binds shader with this array buffer.
   rendererData->shader->Bind(transform,
                              viewProjMatrix,
@@ -327,7 +340,11 @@ void rendererDrawSkinnedMesh(struct RendererData* rendererData, ozz::math::Float
   glBindTexture(GL_TEXTURE_2D, 0);
   CWRAPPER_GL(BindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0));
 
-#ifndef CAPI_NO_SHADER
+#if CAPI_NO_SHADER
+  CWRAPPER_GL(DisableVertexAttribArray(position_attrib));
+  CWRAPPER_GL(DisableVertexAttribArray(normal_attrib));
+  CWRAPPER_GL(DisableVertexAttribArray(uv_attrib));
+#else
   rendererData->shader->Unbind();
 #endif
 }

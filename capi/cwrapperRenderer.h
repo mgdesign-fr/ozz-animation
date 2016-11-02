@@ -21,6 +21,9 @@
 #define CWRAPPER_GL(_f) cwrapper_gl##_f
 #endif // NDEBUG
 
+// Convenient macro definition for specifying buffer offsets.
+#define GL_PTR_OFFSET(i) reinterpret_cast<void*>(static_cast<intptr_t>(i))
+
 //-----------------------------------------------------------------------------
 struct RendererData;
 
@@ -31,7 +34,11 @@ struct RendererData* rendererInitialize();
 void rendererDispose(struct RendererData* rendererData);
 
 //-----------------------------------------------------------------------------
+#if CAPI_NO_SHADER
+void rendererDrawSkinnedMesh(struct RendererData* rendererData, const ozz::sample::Mesh& mesh, const unsigned int textureId, const ozz::Range<ozz::math::Float4x4> skinning_matrices, const ozz::math::Float4x4& transform, GLint position_attrib, GLint normal_attrib, GLint uv_attrib);
+#else
 void rendererDrawSkinnedMesh(struct RendererData* rendererData, ozz::math::Float4x4& viewProjMatrix, const ozz::sample::Mesh& mesh, const unsigned int textureId, const ozz::Range<ozz::math::Float4x4> skinning_matrices, const ozz::math::Float4x4& transform);
+#endif
 
 //-----------------------------------------------------------------------------
 bool rendererLoadTexture(struct RendererData* rendererData, const char* texturePath, unsigned int textureId);

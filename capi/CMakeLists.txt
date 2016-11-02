@@ -16,8 +16,8 @@ add_library(ozz-capi SHARED
   
 include_directories(${CMAKE_SOURCE_DIR}/samples)
 
-add_definitions(-DCAPI_BUILD_DLL)
-  
+add_definitions(-DCAPI_BUILD_DLL -DCAPI_NO_SHADER)
+
 # CWrapper requires OpenGL package.
 include_directories(${CMAKE_SOURCE_DIR}/extern/glfw/include) # Ce dossier contient les includes GL!
 find_package(OpenGL REQUIRED)
