@@ -26,7 +26,7 @@
 #define CONFIG_MAX_ANIMATIONS 2
 #define CONFIG_MAX_MESHS 2
 #define CONFIG_MAX_TEXTURES 2
-#define CONFIG_MAX_ENTITIES 2
+#define CONFIG_MAX_ENTITIES 1
 
 //-----------------------------------------------------------------------------
 struct EntityConfig
@@ -55,12 +55,12 @@ static float defaultTransformIdentity[16] = {1.0f, 0.0f, 0.0f, 0.0f,
                                              0.0f, 1.0f, 0.0f, 0.0f,
                                              0.0f, 0.0f, 1.0f, 0.0f,
                                              0.0f, 0.0f, 0.0f, 1.0f};
-static struct EntityConfig defaultEntitiesConfig[] = { {0, 0, 0, 0, defaultTransformIdentity, 0.0f}, {1, 1, 1, 1, defaultTransformIdentity, 7.0f} };
+static struct EntityConfig defaultEntitiesConfig[] = { {1, 1, 1, 1, defaultTransformIdentity, 0.0f}};
 static struct Config defaultConfiguration = {
-                                              {"media/ExportPersoRue01_skeleton.ozz", "media/femme_skeleton.ozz"},
-                                              {"media/ExportPersoRue01_animation.ozz", "media/femme_animation.ozz"},
-                                              {"media/ExportPersoRue01_mesh.ozz", "media/femme_mesh.ozz"},
-                                              {"media/UVW_man00.jpg", "media/womanUVW02.jpg"},
+                                              {"media/Man01a_ProOptimized(TalkLoop_0-200)_skeleton.ozz", "media/Man02b_ProOptimized(StandLoop_0-200)_skeleton.ozz"},
+                                              {"media/Man01a_ProOptimized(TalkLoop_0-200)_animation.ozz", "media/Man02b_ProOptimized(StandLoop_0-200)_animation.ozz"},
+                                              {"media/Man01a_ProOptimized(TalkLoop_0-200)_mesh.ozz", "media/Man02b_ProOptimized(StandLoop_0-200)_mesh.ozz"},
+                                              {"media/UVW_man00.jpg", "media/UVW_man00.jpg"},
                                               defaultEntitiesConfig,
                                               sizeof(defaultEntitiesConfig) / sizeof(struct EntityConfig)
                                             };
