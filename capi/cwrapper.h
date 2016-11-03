@@ -25,7 +25,7 @@
 #define CONFIG_MAX_SKELETONS 6
 #define CONFIG_MAX_ANIMATIONS 6
 #define CONFIG_MAX_MESHS 6
-#define CONFIG_MAX_TEXTURES 18
+#define CONFIG_MAX_TEXTURES 15
 #define CONFIG_MAX_ENTITIES 16
 
 //-----------------------------------------------------------------------------
