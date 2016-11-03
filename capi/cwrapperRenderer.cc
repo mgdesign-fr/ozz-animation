@@ -30,6 +30,7 @@ DECL_GL_EXT(glVertexAttribPointer, PFNGLVERTEXATTRIBPOINTERPROC);
 DECL_GL_EXT(glDisableVertexAttribArray, PFNGLDISABLEVERTEXATTRIBARRAYPROC);
 DECL_GL_EXT(glUniform1i, PFNGLUNIFORM1IPROC);
 DECL_GL_EXT(glUniformMatrix4fv, PFNGLUNIFORMMATRIX4FVPROC);
+DECL_GL_EXT(glGenerateMipmap, PFNGLGENERATEMIPMAPPROC);
 #ifndef CAPI_NO_SHADER
 DECL_GL_EXT(glUseProgram, PFNGLUSEPROGRAMPROC);
 DECL_GL_EXT(glUniformMatrix4fv, PFNGLUNIFORMMATRIX4FVPROC);
@@ -75,6 +76,7 @@ void _rendererInitializeOpenGLExtensions()
   INIT_GL_EXT(glDisableVertexAttribArray, PFNGLDISABLEVERTEXATTRIBARRAYPROC);
   INIT_GL_EXT(glUniform1i, PFNGLUNIFORM1IPROC);
   INIT_GL_EXT(glUniformMatrix4fv, PFNGLUNIFORMMATRIX4FVPROC);
+  INIT_GL_EXT(glGenerateMipmap, PFNGLGENERATEMIPMAPPROC);
 #ifndef CAPI_NO_SHADER
   INIT_GL_EXT(glUseProgram, PFNGLUSEPROGRAMPROC);
   INIT_GL_EXT(glUniformMatrix4fv, PFNGLUNIFORMMATRIX4FVPROC);
@@ -397,13 +399,14 @@ bool rendererLoadTexture(struct RendererData* rendererData, const char* textureP
     // Create GL texture and load image data in it
     glGenTextures(1, &rendererData->glTextures[textureId]);
     glBindTexture(GL_TEXTURE_2D, rendererData->glTextures[textureId]);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexImage2D(GL_TEXTURE_2D,
                  0, GL_RGB,
                  imageWidth, imageHeight,
                  0, GL_RGB, GL_UNSIGNED_BYTE, imageData);
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    CWRAPPER_GL(GenerateMipmap(GL_TEXTURE_2D));
     glBindTexture(GL_TEXTURE_2D, 0);
 
     // All done free memory
