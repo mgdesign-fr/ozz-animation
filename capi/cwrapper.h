@@ -79,7 +79,7 @@ OZZ_ANIMATION_C_API void update(struct Data* data, float _dt);
 
 //-----------------------------------------------------------------------------
 #if CAPI_NO_SHADER
-OZZ_ANIMATION_C_API void render(struct Data* data, int position_attrib, int normal_attrib, int uv_attrib);
+OZZ_ANIMATION_C_API void render(struct Data* data, float* viewProjMatrix, int position_attrib, int normal_attrib, int uv_attrib, int u_model_matrix, int u_view_projection_matrix, int u_texture);
 #else
 OZZ_ANIMATION_C_API void render(struct Data* data, float* viewProjMatrix);
 #endif

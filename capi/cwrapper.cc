@@ -238,15 +238,14 @@ void update(struct Data* data, float _dt)
 
 //-----------------------------------------------------------------------------
 #if CAPI_NO_SHADER
-void render(struct Data* data, int position_attrib, int normal_attrib, int uv_attrib)
-{
+void render(struct Data* data, float* viewProjMatrix, int position_attrib, int normal_attrib, int uv_attrib, int u_model_matrix, int u_view_projection_matrix, int u_texture)
 #else
 void render(struct Data* data, float* viewProjMatrix)
+#endif
 {
   // Setup view & proj matrix
   ozz::math::Float4x4 viewProj;
   floatPtrToOzzMatrix(viewProjMatrix, viewProj);
-#endif
 
   // Render meshs
   for(uint32_t entityId = 0; entityId < data->entitiesCount; ++entityId)
@@ -254,7 +253,7 @@ void render(struct Data* data, float* viewProjMatrix)
     struct Entity& entity = data->entities[entityId];
     ozz::sample::Mesh& entityMesh = data->meshs[entity.meshId];
 #if CAPI_NO_SHADER
-    rendererDrawSkinnedMesh(data->rendererData, entityMesh, entity.textureId, entity.skinning_matrices, entity.transform, (GLint)position_attrib, (GLint)normal_attrib, (GLint)uv_attrib);
+    rendererDrawSkinnedMesh(data->rendererData, viewProj, entityMesh, entity.textureId, entity.skinning_matrices, entity.transform, (GLint)position_attrib, (GLint)normal_attrib, (GLint)uv_attrib, (GLint)u_model_matrix, (GLint)u_view_projection_matrix, (GLint)u_texture);
 #else
     rendererDrawSkinnedMesh(data->rendererData, viewProj, entityMesh, entity.textureId, entity.skinning_matrices, entity.transform);
 #endif

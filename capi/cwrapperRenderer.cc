@@ -26,6 +26,8 @@ DECL_GL_EXT(glBufferSubData, PFNGLBUFFERSUBDATAPROC);
 DECL_GL_EXT(glEnableVertexAttribArray, PFNGLENABLEVERTEXATTRIBARRAYPROC);
 DECL_GL_EXT(glVertexAttribPointer, PFNGLVERTEXATTRIBPOINTERPROC);
 DECL_GL_EXT(glDisableVertexAttribArray, PFNGLDISABLEVERTEXATTRIBARRAYPROC);
+DECL_GL_EXT(glUniform1i, PFNGLUNIFORM1IPROC);
+DECL_GL_EXT(glUniformMatrix4fv, PFNGLUNIFORMMATRIX4FVPROC);
 #ifndef CAPI_NO_SHADER
 DECL_GL_EXT(glUseProgram, PFNGLUSEPROGRAMPROC);
 DECL_GL_EXT(glUniformMatrix4fv, PFNGLUNIFORMMATRIX4FVPROC);
@@ -69,6 +71,8 @@ void _rendererInitializeOpenGLExtensions()
   INIT_GL_EXT(glVertexAttribPointer, PFNGLVERTEXATTRIBPOINTERPROC);
   INIT_GL_EXT(glEnableVertexAttribArray, PFNGLENABLEVERTEXATTRIBARRAYPROC);
   INIT_GL_EXT(glDisableVertexAttribArray, PFNGLDISABLEVERTEXATTRIBARRAYPROC);
+  INIT_GL_EXT(glUniform1i, PFNGLUNIFORM1IPROC);
+  INIT_GL_EXT(glUniformMatrix4fv, PFNGLUNIFORMMATRIX4FVPROC);
 #ifndef CAPI_NO_SHADER
   INIT_GL_EXT(glUseProgram, PFNGLUSEPROGRAMPROC);
   INIT_GL_EXT(glUniformMatrix4fv, PFNGLUNIFORMMATRIX4FVPROC);
@@ -184,7 +188,7 @@ void rendererDispose(struct RendererData* rendererData)
 
 //-----------------------------------------------------------------------------
 #if CAPI_NO_SHADER
-void rendererDrawSkinnedMesh(struct RendererData* rendererData, const ozz::sample::Mesh& mesh, const unsigned int textureId, const ozz::Range<ozz::math::Float4x4> skinning_matrices, const ozz::math::Float4x4& transform, GLint position_attrib, GLint normal_attrib, GLint uv_attrib)
+void rendererDrawSkinnedMesh(struct RendererData* rendererData, ozz::math::Float4x4& viewProjMatrix, const ozz::sample::Mesh& mesh, const unsigned int textureId, const ozz::Range<ozz::math::Float4x4> skinning_matrices, const ozz::math::Float4x4& transform, GLint position_attrib, GLint normal_attrib, GLint uv_attrib, GLint u_model_matrix, GLint u_view_projection_matrix, GLint u_texture)
 #else
 void rendererDrawSkinnedMesh(struct RendererData* rendererData, ozz::math::Float4x4& viewProjMatrix, const ozz::sample::Mesh& mesh, const unsigned int textureId, const ozz::Range<ozz::math::Float4x4> skinning_matrices, const ozz::math::Float4x4& transform)
 #endif
@@ -313,6 +317,32 @@ void rendererDrawSkinnedMesh(struct RendererData* rendererData, ozz::math::Float
 
   CWRAPPER_GL(EnableVertexAttribArray(uv_attrib));
   CWRAPPER_GL(VertexAttribPointer(uv_attrib, 2, GL_FLOAT, GL_FALSE, uvs_stride, GL_PTR_OFFSET(uvs_offset)));
+
+  // Binds model_matrix uniform
+  if(u_model_matrix >= 0)
+  {
+    float values[16];
+    ozz::math::StorePtrU(transform.cols[0], values + 0);
+    ozz::math::StorePtrU(transform.cols[1], values + 4);
+    ozz::math::StorePtrU(transform.cols[2], values + 8);
+    ozz::math::StorePtrU(transform.cols[3], values + 12);
+    CWRAPPER_GL(UniformMatrix4fv(u_model_matrix, 1, false, values));
+  }
+
+  // Binds model_matrix uniform
+  if(u_view_projection_matrix >= 0)
+  {
+    float values[16];
+    ozz::math::StorePtrU(viewProjMatrix.cols[0], values + 0);
+    ozz::math::StorePtrU(viewProjMatrix.cols[1], values + 4);
+    ozz::math::StorePtrU(viewProjMatrix.cols[2], values + 8);
+    ozz::math::StorePtrU(viewProjMatrix.cols[3], values + 12);
+    CWRAPPER_GL(UniformMatrix4fv(u_view_projection_matrix, 1, false, values));
+  }
+
+  // Binds texture sampler uniform
+  if(u_texture >= 0)
+    CWRAPPER_GL(Uniform1i(u_texture, 0));
 #else
   // Binds shader with this array buffer.
   rendererData->shader->Bind(transform,
