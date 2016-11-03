@@ -199,6 +199,14 @@ void dispose(struct Data* data)
 }
 
 //-----------------------------------------------------------------------------
+void setEntityTransform(struct Data* data, unsigned int entityId, float* transform)
+{
+  assert(entityId < data->entitiesCount);
+  struct Entity& entity = data->entities[entityId];
+  floatPtrToOzzMatrix(transform, entity.transform);
+}
+
+//-----------------------------------------------------------------------------
 void update(struct Data* data, float _dt)
 {
   for(uint32_t entityId = 0; entityId < data->entitiesCount; ++entityId)
