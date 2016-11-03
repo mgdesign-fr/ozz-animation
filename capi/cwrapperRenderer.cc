@@ -6,6 +6,8 @@
 
 #include <ozz/base/maths/math_ex.h>
 #include <ozz/geometry/runtime/skinning_job.h>
+#include "ozz/base/io/stream.h"
+#include "ozz/base/log.h"
 
 #ifndef CAPI_NO_SHADER
 // Inclure après <Windows.h>
@@ -390,6 +392,8 @@ bool rendererLoadTexture(struct RendererData* rendererData, const char* textureP
   unsigned char* imageData = stbi_load(texturePath, &imageWidth, &imageHeight, &imageBpp, 0);
   if(imageData != NULL)
   {
+    ozz::log::Out() << "Loading texture: " << texturePath << "." << std::endl;
+
     // Create GL texture and load image data in it
     glGenTextures(1, &rendererData->glTextures[textureId]);
     glBindTexture(GL_TEXTURE_2D, rendererData->glTextures[textureId]);

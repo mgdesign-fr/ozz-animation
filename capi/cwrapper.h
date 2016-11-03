@@ -22,11 +22,11 @@
 #endif // CAPI_BUILD_STATIC
 
 //-----------------------------------------------------------------------------
-#define CONFIG_MAX_SKELETONS 2
-#define CONFIG_MAX_ANIMATIONS 2
-#define CONFIG_MAX_MESHS 2
-#define CONFIG_MAX_TEXTURES 2
-#define CONFIG_MAX_ENTITIES 2
+#define CONFIG_MAX_SKELETONS 6
+#define CONFIG_MAX_ANIMATIONS 6
+#define CONFIG_MAX_MESHS 6
+#define CONFIG_MAX_TEXTURES 18
+#define CONFIG_MAX_ENTITIES 16
 
 //-----------------------------------------------------------------------------
 struct EntityConfig
