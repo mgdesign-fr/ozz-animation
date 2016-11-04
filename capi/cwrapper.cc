@@ -32,6 +32,7 @@ struct Entity
 };
 
 //-----------------------------------------------------------------------------
+// NOTE(jeff) Orders matters for memory alignement!
 struct Data
 {
   struct RendererData* rendererData;
@@ -46,7 +47,10 @@ struct Data
 struct Data* initialize(struct Config* config)
 {
   bool success = true;
-  struct Data* data = new Data();
+
+  // NOTE(jeff) Force alignement
+  // NOTE(jeff) Use ozz allocator rather than _aligned_malloc because loading functions (for mesh/skeleton/anim) destroy / recreates memory, and crash.
+  struct Data* data = (Data*)ozz::memory::default_allocator()->Allocate(sizeof(Data), 16);
   
   // Init le pointeur "cache" à null pour éviter les crashs si problème à l'init.
   uint32_t entityId = 0;
@@ -195,7 +199,7 @@ void dispose(struct Data* data)
     data->rendererData = NULL;
   }
 
-  delete(data);
+  ozz::memory::default_allocator()->Deallocate(data);
 }
 
 //-----------------------------------------------------------------------------
