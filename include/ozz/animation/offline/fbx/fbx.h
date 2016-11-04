@@ -28,6 +28,11 @@
 #ifndef OZZ_OZZ_ANIMATION_OFFLINE_FBX_FBX_H_
 #define OZZ_OZZ_ANIMATION_OFFLINE_FBX_FBX_H_
 
+#include "ozz/base/containers/vector.h"
+#include "ozz/base/containers/string.h"
+
+#include "ozz/animation/offline/raw_animation.h"
+
 namespace ozz {
 namespace animation {
 
@@ -38,7 +43,6 @@ namespace offline {
 
 //  Forward declares ozz offline animation and skeleton types.
 struct RawSkeleton;
-struct RawAnimation;
 
 namespace fbx {
 
@@ -46,6 +50,9 @@ namespace fbx {
 // _skeleton must point to a valid RawSkeleton instance, that will be cleared
 // and filled with skeleton data extracted from the fbx document.
 bool ImportFromFile(const char* _filename, RawSkeleton* _skeleton);
+
+// Vector of imported animations.
+typedef Vector<RawAnimation>::Std Animations;
 
 // Imports an offline animation from _filename fbx document.
 // _animation must point to a valid RawSkeleton instance, that will be cleared
@@ -55,7 +62,7 @@ bool ImportFromFile(const char* _filename, RawSkeleton* _skeleton);
 bool ImportFromFile(const char* _filename,
                     const Skeleton& _skeleton,
                     float _sampling_rate,
-                    RawAnimation* _animation);
+                    Animations* _animations);
 }  // fbx
 }  // offline
 }  // animation

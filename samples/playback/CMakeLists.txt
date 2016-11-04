@@ -1,6 +1,6 @@
 
 add_custom_command(
-  DEPENDS BUILD_DATA
+  DEPENDS $<$<BOOL:${ozz_build_fbx}>:BUILD_DATA>
           "${CMAKE_CURRENT_LIST_DIR}/README"
           "${ozz_media_directory}/bin/alain_skeleton.ozz"
           "${ozz_media_directory}/bin/alain_atlas.ozz"
@@ -41,7 +41,7 @@ if(NOT EMSCRIPTEN)
   find_package(OpenGL REQUIRED)
   include_directories(${OPENGL_INCLUDE_DIR})
 endif()
-  
+
 target_link_libraries(sample_playback
   sample_framework)
 
@@ -64,7 +64,7 @@ else()
 endif(EMSCRIPTEN)
 
 add_test(NAME sample_playback COMMAND sample_playback "--max_idle_loops=${ozz_sample_testing_loops}" $<$<BOOL:${ozz_run_tests_headless}>:--norender>)
-add_test(NAME sample_playback_path1 COMMAND sample_playback "--skeleton=media/alain_skeleton.ozz" "--animation=media/alain_atlas.ozz" "--max_idle_loops=${ozz_sample_testing_loops}" $<$<BOOL:${ozz_run_tests_headless}>:--norender>)
+add_test(NAME sample_playback_path1 COMMAND sample_playback "--skeleton=media/alain_skeleton.ozz" "--animation=media/alain_crossarms.ozz" "--max_idle_loops=${ozz_sample_testing_loops}" $<$<BOOL:${ozz_run_tests_headless}>:--norender>)
 add_test(NAME sample_playback_invalid_skeleton_path COMMAND sample_playback "--skeleton=media/bad_skeleton.ozz" $<$<BOOL:${ozz_run_tests_headless}>:--norender>)
 set_tests_properties(sample_playback_invalid_skeleton_path PROPERTIES WILL_FAIL true)
 add_test(NAME sample_playback_invalid_animation_path COMMAND sample_playback "--animation=media/bad_animation.ozz" $<$<BOOL:${ozz_run_tests_headless}>:--norender>)

@@ -77,6 +77,7 @@ class Camera;
 class Shader;
 class SkeletonShader;
 class AmbientShader;
+class AmbientTexturedShader;
 class AmbientShaderInstanced;
 class GlImmediateRenderer;
 
@@ -108,14 +109,33 @@ class RendererImpl : public Renderer {
                          const Color _colors[2]);
 
   virtual bool DrawBoxShaded(const ozz::math::Box& _box,
-                             ozz::Range<const ozz::math::Float4x4> _transforms);
+                             ozz::Range<const ozz::math::Float4x4> _transforms,
+                             Color _color);
 
   virtual bool DrawSkinnedMesh(const Mesh& _mesh,
                                const Range<math::Float4x4> _skinning_matrices,
-                               const ozz::math::Float4x4& _transform);
+                               const ozz::math::Float4x4& _transform,
+                               const Options& _options = Options());
 
   virtual bool DrawMesh(const Mesh& _mesh,
-                        const ozz::math::Float4x4& _transform);
+                        const ozz::math::Float4x4& _transform,
+                        const Options& _options = Options());
+
+  virtual bool DrawVectors(ozz::Range<const float> _positions, size_t _positions_stride,
+                           ozz::Range<const float> _directions, size_t _directions_stride,
+                           int _num_vectors,
+                           float _vector_length,
+                           Renderer::Color _color,
+                           const ozz::math::Float4x4& _transform);
+
+  virtual bool DrawBinormals(ozz::Range<const float> _positions, size_t _positions_stride,
+                             ozz::Range<const float> _normals, size_t _normals_stride,
+                             ozz::Range<const float> _tangents, size_t _tangents_stride,
+                             ozz::Range<const float> _handenesses, size_t _handenesses_stride,
+                             int _num_vectors,
+                             float _vector_length,
+                             Renderer::Color _color,
+                             const ozz::math::Float4x4& _transform);
 
   // Get GL immediate renderer implementation;
   GlImmediateRenderer* immediate_renderer() const {
@@ -198,6 +218,7 @@ class RendererImpl : public Renderer {
 
   // Ambient rendering shader.
   AmbientShader* ambient_shader;
+  AmbientTexturedShader* ambient_textured_shader;
   AmbientShaderInstanced* ambient_shader_instanced;
 
   // Checkered texture

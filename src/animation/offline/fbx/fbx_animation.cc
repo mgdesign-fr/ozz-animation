@@ -51,8 +51,14 @@ bool ExtractAnimation(FbxSceneLoader* _scene_loader,
   FbxScene* scene = _scene_loader->scene();
   assert(scene);
 
+  ozz::log::Log() << "Extracting animation \"" << anim_stack->GetName() << "\""
+    << std::endl;
+
   // Setup Fbx animation evaluator.
   scene->SetCurrentAnimationStack(anim_stack);
+
+  // Set animation name.
+  _animation->name = anim_stack->GetName();
 
   // Extract animation duration.
   FbxTimeSpan time_spawn;
@@ -64,8 +70,28 @@ bool ExtractAnimation(FbxSceneLoader* _scene_loader,
     scene->GetGlobalSettings().GetTimelineDefaultTimeSpan(time_spawn);
   }
 
-  float start = static_cast<float>(time_spawn.GetStart().GetSecondDouble());
-  float end = static_cast<float>(time_spawn.GetStop().GetSecondDouble());
+  // Get frame rate from the scene.
+  FbxTime::EMode mode = scene->GetGlobalSettings().GetTimeMode();
+  const float scene_frame_rate =
+      static_cast<float>((mode == FbxTime::eCustom)
+                             ? scene->GetGlobalSettings().GetCustomFrameRate()
+                             : FbxTime::GetFrameRate(mode));
+
+  // Deduce sampling period.
+  // Scene frame rate is used when provided argument is <= 0.
+  float sampling_rate;
+  if (_sampling_rate > 0.f) {
+    sampling_rate = _sampling_rate;
+    log::Log() << "Using sampling rate of " << sampling_rate << "hz." << std::endl;
+  } else {
+    sampling_rate = scene_frame_rate;
+    log::Log() << "Using scene sampling rate of " << sampling_rate << "hz." << std::endl;
+  }
+  const float sampling_period = 1.f / sampling_rate;
+
+  // Get scene start and end.
+  const float start = static_cast<float>(time_spawn.GetStart().GetSecondDouble());
+  const float end = static_cast<float>(time_spawn.GetStop().GetSecondDouble());
 
   // Animation duration could be 0 if it's just a pose. In this case we'll set a
   // default 1s duration.
@@ -112,7 +138,6 @@ bool ExtractAnimation(FbxSceneLoader* _scene_loader,
 
     // Reserve keys in animation tracks (allocation strategy optimization
     // purpose).
-    const float sampling_period = 1.f / _sampling_rate;
     const int max_keys =
       static_cast<int>(3.f + (end - start) / sampling_period);
     track.translations.reserve(max_keys);
@@ -128,12 +153,18 @@ bool ExtractAnimation(FbxSceneLoader* _scene_loader,
         loop_again = false;
       }
 
-      // Evaluate local transform at fbx_time.
-      const ozz::math::Transform transform =
-        _scene_loader->converter()->ConvertTransform(
-          _skeleton.joint_properties()[i].parent == Skeleton::kNoParentIndex?
-            evaluator->GetNodeGlobalTransform(node, FbxTimeSeconds(t)):
-            evaluator->GetNodeLocalTransform(node, FbxTimeSeconds(t)));
+      // Evaluate transform matric at t.
+      const FbxAMatrix matrix = _skeleton.joint_properties()[i].parent == Skeleton::kNoParentIndex?
+        evaluator->GetNodeGlobalTransform(node, FbxTimeSeconds(t)):
+        evaluator->GetNodeLocalTransform(node, FbxTimeSeconds(t));
+
+      // Convert to a transform obejct in ozz unit/axis system.
+      ozz::math::Transform transform;
+      if (!_scene_loader->converter()->ConvertTransform(matrix, &transform)) {
+        ozz::log::Err() << "Failed to extract animation transform for joint \"" <<
+          joint_name << "\" at t = " << t << "s." << std::endl;
+        return false;
+      }
 
       // Fills corresponding track.
       const float local_time = t - start;
@@ -156,10 +187,13 @@ bool ExtractAnimation(FbxSceneLoader* _scene_loader,
 }
 }
 
-bool ExtractAnimation(FbxSceneLoader* _scene_loader,
-                      const Skeleton& _skeleton,
-                      float _sampling_rate,
-                      RawAnimation* _animation) {
+bool ExtractAnimations(FbxSceneLoader* _scene_loader,
+                       const Skeleton& _skeleton,
+                       float _sampling_rate,
+                       Animations* _animations) {
+  // Clears output
+  _animations->clear();
+
   FbxScene* scene = _scene_loader->scene();
   assert(scene);
 
@@ -170,21 +204,27 @@ bool ExtractAnimation(FbxSceneLoader* _scene_loader,
     ozz::log::Err() << "No animation found." << std::endl;
     return false;
   }
-  
-  if (anim_stacks_count > 1) {
-    ozz::log::Log() << anim_stacks_count <<
-      " animations found. Only the first one will be exported." << std::endl;
+
+  // Prepares ouputs.
+  _animations->resize(anim_stacks_count);
+
+  // Sequentially import all available animations.
+  bool success = true;
+  for (int i = 0; i < anim_stacks_count && success; ++i) {
+    FbxAnimStack* anim_stack = scene->GetSrcObject<FbxAnimStack>(i);
+    success &= ExtractAnimation(_scene_loader,
+                                anim_stack,
+                                _skeleton,
+                                _sampling_rate,
+                                &_animations->at(i));
   }
 
-  // Arbitrarily take the first animation of the stack.
-  FbxAnimStack* anim_stack = scene->GetSrcObject<FbxAnimStack>(0);
-  ozz::log::Log() << "Extracting animation \"" << anim_stack->GetName() << "\""
-    << std::endl;
-  return ExtractAnimation(_scene_loader,
-                          anim_stack,
-                          _skeleton,
-                          _sampling_rate,
-                          _animation);
+  // Clears output if somthing failed during import, avoids partial data.
+  if (!success) {
+    _animations->clear();
+  }
+
+  return success;
 }
 }  // fbx
 }  // offline

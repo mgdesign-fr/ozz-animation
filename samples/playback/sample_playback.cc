@@ -36,6 +36,13 @@
 #include "cwrapper.h"
 #include "cwrapperUtils.h"
 
+// Animation archive can be specified as an option.
+OZZ_OPTIONS_DECLARE_STRING(
+  animation,
+  "Path to the animation (ozz archive format).",
+  "media/alain_crossarms.ozz",
+  false)
+
 class LoadSampleApplication : public ozz::sample::Application
 {
  public:

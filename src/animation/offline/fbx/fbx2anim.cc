@@ -47,9 +47,11 @@ private:
   virtual bool Import(const char* _filename,
                       const ozz::animation::Skeleton& _skeleton,
                       float _sampling_rate,
-                      ozz::animation::offline::RawAnimation* _animation) {
-    return ozz::animation::offline::fbx::ImportFromFile(
-      _filename, _skeleton, _sampling_rate, _animation);
+                      Animations* _animations) {
+    return ozz::animation::offline::fbx::ImportFromFile(_filename,
+                                                        _skeleton,
+                                                        _sampling_rate,
+                                                        _animations);
   }
 };
 

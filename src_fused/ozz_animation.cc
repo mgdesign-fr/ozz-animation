@@ -33,7 +33,11 @@
 
 #include "ozz/base/io/archive.h"
 #include "ozz/base/maths/math_archive.h"
+#include "ozz/base/maths/math_ex.h"
 #include "ozz/base/memory/allocator.h"
+
+#include <cstring>
+#include <cassert>
 
 // Internal include file
 #define OZZ_INCLUDE_PRIVATE_HEADER  // Allows to include private headers.
@@ -134,21 +138,64 @@ namespace animation {
 
 Animation::Animation()
     : duration_(0.f),
-      num_tracks_(0) {
+      num_tracks_(0),
+      name_(NULL) {
 }
 
 Animation::~Animation() {
-  Destroy();
+  Deallocate();
 }
 
-void Animation::Destroy() {
-  memory::Allocator* allocator = memory::default_allocator();
-  allocator->Deallocate(translations_);
-  allocator->Deallocate(rotations_);
-  allocator->Deallocate(scales_);
+void Animation::Allocate(size_t name_len, size_t _translation_count,
+                         size_t _rotation_count, size_t _scale_count) {
+  // Distributes buffer memory while ensuring proper alignment (serves larger
+  // alignment values first).
+  OZZ_STATIC_ASSERT(
+    OZZ_ALIGN_OF(TranslationKey) >= OZZ_ALIGN_OF(RotationKey) &&
+    OZZ_ALIGN_OF(RotationKey) >= OZZ_ALIGN_OF(ScaleKey) &&
+    OZZ_ALIGN_OF(ScaleKey) >= OZZ_ALIGN_OF(char));
 
-  duration_ = 0.f;
-  num_tracks_ = 0;
+  assert(name_ == NULL && translations_.Size() == 0 && rotations_.Size() == 0 &&
+         scales_.Size() == 0);
+
+  // Compute overall size and allocate a single buffer for all the data.
+  const size_t buffer_size =
+    (name_len > 0 ? name_len + 1 : 0) +
+    _translation_count * sizeof(TranslationKey) +
+    _rotation_count * sizeof(RotationKey) +
+    _scale_count * sizeof(ScaleKey);
+  char* buffer = memory::default_allocator()->Allocate<char>(buffer_size);
+
+  // Fix up pointers
+  translations_.begin = reinterpret_cast<TranslationKey*>(buffer);
+  assert(math::IsAligned(translations_.begin, OZZ_ALIGN_OF(TranslationKey)));
+  buffer += _translation_count * sizeof(TranslationKey);
+  translations_.end = reinterpret_cast<TranslationKey*>(buffer);
+
+  rotations_.begin = reinterpret_cast<RotationKey*>(buffer);
+  assert(math::IsAligned(rotations_.begin, OZZ_ALIGN_OF(RotationKey)));
+  buffer += _rotation_count * sizeof(RotationKey);
+  rotations_.end = reinterpret_cast<RotationKey*>(buffer);
+
+  scales_.begin = reinterpret_cast<ScaleKey*>(buffer);
+  assert(math::IsAligned(scales_.begin, OZZ_ALIGN_OF(ScaleKey)));
+  buffer += _scale_count * sizeof(ScaleKey);
+  scales_.end = reinterpret_cast<ScaleKey*>(buffer);
+
+  // Let name be NULL if animation has no name. Allows to avoid allocating this
+  // buffer in the constructor of empty animations.
+  name_ = reinterpret_cast<char*>(name_len > 0 ? buffer : NULL);
+  assert(math::IsAligned(name_, OZZ_ALIGN_OF(char)));
+}
+
+void Animation::Deallocate() {
+
+  memory::default_allocator()->Deallocate(translations_.begin);
+
+  name_ = NULL;
+  translations_ = ozz::Range<TranslationKey>();
+  rotations_ = ozz::Range<RotationKey>();
+  scales_ = ozz::Range<ScaleKey>();
 }
 
 size_t Animation::size() const {
@@ -161,8 +208,18 @@ void Animation::Save(ozz::io::OArchive& _archive) const {
   _archive << duration_;
   _archive << static_cast<int32_t>(num_tracks_);
 
+  const size_t name_len = name_ ? std::strlen(name_) : 0;
+  _archive << static_cast<int32_t>(name_len);
+
   const ptrdiff_t translation_count = translations_.Count();
   _archive << static_cast<int32_t>(translation_count);
+  const ptrdiff_t rotation_count = rotations_.Count();
+  _archive << static_cast<int32_t>(rotation_count);
+  const ptrdiff_t scale_count = scales_.Count();
+  _archive << static_cast<int32_t>(scale_count);
+
+  _archive << ozz::io::MakeArray(name_, name_len);
+
   for (ptrdiff_t i = 0; i < translation_count; ++i) {
     const TranslationKey& key = translations_.begin[i];
     _archive << key.time;
@@ -170,8 +227,6 @@ void Animation::Save(ozz::io::OArchive& _archive) const {
     _archive << ozz::io::MakeArray(key.value);
   }
 
-  const ptrdiff_t rotation_count = rotations_.Count();
-  _archive << static_cast<int32_t>(rotation_count);
   for (ptrdiff_t i = 0; i < rotation_count; ++i) {
     const RotationKey& key = rotations_.begin[i];
     _archive << key.time;
@@ -184,8 +239,6 @@ void Animation::Save(ozz::io::OArchive& _archive) const {
     _archive << ozz::io::MakeArray(key.value);
   }
 
-  const ptrdiff_t scale_count = scales_.Count();
-  _archive << static_cast<int32_t>(scale_count);
   for (ptrdiff_t i = 0; i < scale_count; ++i) {
     const ScaleKey& key = scales_.begin[i];
     _archive << key.time;
@@ -197,14 +250,14 @@ void Animation::Save(ozz::io::OArchive& _archive) const {
 void Animation::Load(ozz::io::IArchive& _archive, uint32_t _version) {
 
   // Destroy animation in case it was already used before.
-  Destroy();
+  Deallocate();
+  duration_ = 0.f;
+  num_tracks_ = 0;
 
   // No retro-compatibility with anterior versions.
-  if (_version != 3) {
+  if (_version != 4) {
     return;
   }
-
-  memory::Allocator* allocator = memory::default_allocator();
 
   _archive >> duration_;
 
@@ -212,18 +265,29 @@ void Animation::Load(ozz::io::IArchive& _archive, uint32_t _version) {
   _archive >> num_tracks;
   num_tracks_ = num_tracks;
 
+  int32_t name_len;
+  _archive >> name_len;
   int32_t translation_count;
   _archive >> translation_count;
-  translations_ = allocator->AllocateRange<TranslationKey>(translation_count);
+  int32_t rotation_count;
+  _archive >> rotation_count;
+  int32_t scale_count;
+  _archive >> scale_count;
+
+  Allocate(name_len, translation_count, rotation_count, scale_count);
+
+  if (name_) {  // NULL name_ is supported.
+    _archive >> ozz::io::MakeArray(name_, name_len);
+    name_[name_len] = 0;
+  }
+
   for (int i = 0; i < translation_count; ++i) {
     TranslationKey& key = translations_.begin[i];
     _archive >> key.time;
     _archive >> key.track;
     _archive >> ozz::io::MakeArray(key.value);
   }
-  int32_t rotation_count;
-  _archive >> rotation_count;
-  rotations_ = allocator->AllocateRange<RotationKey>(rotation_count);
+
   for (int i = 0; i < rotation_count; ++i) {
     RotationKey& key = rotations_.begin[i];
     _archive >> key.time;
@@ -238,9 +302,7 @@ void Animation::Load(ozz::io::IArchive& _archive, uint32_t _version) {
     key.sign = sign & 1;
     _archive >> ozz::io::MakeArray(key.value);
   }
-  int32_t scale_count;
-  _archive >> scale_count;
-  scales_ = allocator->AllocateRange<ScaleKey>(scale_count);
+
   for (int i = 0; i < scale_count; ++i) {
     ScaleKey& key = scales_.begin[i];
     _archive >> key.time;
@@ -1469,7 +1531,7 @@ SamplingCache::SamplingCache(int _max_tracks)
   // Allocates all at once.
   memory::Allocator* allocator = memory::default_allocator();
   char* alloc_begin = reinterpret_cast<char*>(
-    allocator->Allocate(size, AlignOf<InterpSoaTranslation>::value));
+    allocator->Allocate(size, OZZ_ALIGN_OF(InterpSoaTranslation)));
   char* alloc_cursor = alloc_begin;
 
   // Dispatches allocated memory, from the highest alignment requirement to the
@@ -1558,6 +1620,7 @@ void SamplingCache::Invalidate() {
 #include <cstring>
 
 #include "ozz/base/io/archive.h"
+#include "ozz/base/maths/math_ex.h"
 #include "ozz/base/maths/soa_math_archive.h"
 #include "ozz/base/maths/soa_transform.h"
 #include "ozz/base/memory/allocator.h"
@@ -1601,65 +1664,105 @@ void Load(IArchive& _archive,
 
 namespace animation {
 
-Skeleton::Skeleton()
-    : joint_properties_(NULL),
-      bind_pose_(NULL),
-      joint_names_(NULL),
-      num_joints_(0) {
-}
+Skeleton::Skeleton() {}
 
 Skeleton::~Skeleton() {
-  Destroy();
+  Deallocate();
 }
 
-void Skeleton::Destroy() {
-  memory::Allocator* allocator = memory::default_allocator();
-  allocator->Deallocate(joint_properties_);
-  allocator->Deallocate(bind_pose_);
-  allocator->Deallocate(joint_names_);
+char* Skeleton::Allocate(size_t _chars_size, size_t _num_joints) {
+  // Distributes buffer memory while ensuring proper alignment (serves larger
+  // alignment values first).
+  OZZ_STATIC_ASSERT(
+      OZZ_ALIGN_OF(math::SoaTransform) >= OZZ_ALIGN_OF(char*) &&
+      OZZ_ALIGN_OF(char*) >= OZZ_ALIGN_OF(Skeleton::JointProperties) &&
+      OZZ_ALIGN_OF(Skeleton::JointProperties) >= OZZ_ALIGN_OF(char));
 
-  num_joints_ = 0;
+  assert(bind_pose_.Size() == 0 && joint_names_.Size() == 0 &&
+         joint_properties_.Size() == 0);
+
+  // Early out if no joint.
+  if (_num_joints == 0) {
+    return NULL;
+  }
+
+  // Bind poses have SoA format
+  const size_t bind_poses_size = (_num_joints + 3) / 4 * sizeof(math::SoaTransform);
+  const size_t names_size = _num_joints * sizeof(char*);
+  const size_t properties_size = _num_joints * sizeof(Skeleton::JointProperties);
+  const size_t buffer_size =
+      names_size + _chars_size + properties_size + bind_poses_size;
+
+  // Allocates whole buffer.
+  char* buffer = reinterpret_cast<char*>(memory::default_allocator()->
+      Allocate(buffer_size, OZZ_ALIGN_OF(math::SoaTransform)));
+
+  // Bind pose first, biggest alignment.
+  bind_pose_.begin = reinterpret_cast<math::SoaTransform*>(buffer);
+  assert(math::IsAligned(bind_pose_.begin, OZZ_ALIGN_OF(math::SoaTransform)));
+  buffer += bind_poses_size;
+  bind_pose_.end = reinterpret_cast<math::SoaTransform*>(buffer);
+
+  // Then names array, second biggest alignment.
+  joint_names_.begin = reinterpret_cast<char**>(buffer);
+  assert(math::IsAligned(joint_names_.begin, OZZ_ALIGN_OF(char**)));
+  buffer += names_size;
+  joint_names_.end = reinterpret_cast<char**>(buffer);
+
+  // Properties, third biggest alignment.
+  joint_properties_.begin = reinterpret_cast<Skeleton::JointProperties*>(buffer);
+  assert(math::IsAligned(joint_properties_.begin, OZZ_ALIGN_OF(Skeleton::JointProperties)));
+  buffer += properties_size;
+  joint_properties_.end = reinterpret_cast<Skeleton::JointProperties*>(buffer);
+
+  // Remaning buffer will be used to store joint names.
+  return buffer;
 }
 
-// This function is not inlined in order to avoid the inclusion of SoaTransform.
-Range<const math::SoaTransform> Skeleton::bind_pose() const {
-  return Range<const math::SoaTransform>(bind_pose_,
-                                         bind_pose_ + ((num_joints_ + 3) / 4));
+void Skeleton::Deallocate() {
+  memory::default_allocator()->Deallocate(bind_pose_.begin);
+  bind_pose_.Clear();
+  joint_names_.Clear();
+  joint_properties_.Clear();
 }
 
 void Skeleton::Save(ozz::io::OArchive& _archive) const {
 
+  const int32_t num_joints = this->num_joints();
+
   // Early out if skeleton's empty.
-  _archive << static_cast<int32_t>(num_joints_);
-  if (!num_joints_) {
+  _archive << num_joints;
+  if (!num_joints) {
     return;
   }
 
   // Stores names. They are all concatenated in the same buffer, starting at
   // joint_names_[0].
   size_t chars_count = 0;
-  for (int i = 0; i < num_joints_; ++i) {
+  for (int i = 0; i < num_joints; ++i) {
     chars_count += (std::strlen(joint_names_[i]) + 1) * sizeof(char);
   }
   _archive << static_cast<int32_t>(chars_count);
   _archive << ozz::io::MakeArray(joint_names_[0], chars_count);
 
   // Stores joint's properties.
-  _archive << ozz::io::MakeArray(joint_properties_, num_joints_);
+  _archive << ozz::io::MakeArray(joint_properties_);
 
   // Stores bind poses.
-  _archive << ozz::io::MakeArray(bind_pose_, num_soa_joints());
+  _archive << ozz::io::MakeArray(bind_pose_);
 }
 
 void Skeleton::Load(ozz::io::IArchive& _archive, uint32_t _version) {
-  (void)_version;
 
-  // Destroy skeleton in case it was already used before.
-  Destroy();
+  // Deallocate skeleton in case it was already used before.
+  Deallocate();
+
+  if (_version != 1) {
+    return;
+  }
 
   int32_t num_joints;
   _archive >> num_joints;
-  num_joints_ = num_joints;
 
   // Early out if skeleton's empty.
   if (!num_joints) {
@@ -1670,11 +1773,10 @@ void Skeleton::Load(ozz::io::IArchive& _archive, uint32_t _version) {
   int32_t chars_count;
   _archive >> chars_count;
 
-  // Allocates and reads name's buffer. Names are stored at the end off the
-  // array of pointers.
-  const size_t buffer_size = num_joints * sizeof(char*) + chars_count;
-  joint_names_ = memory::default_allocator()->Allocate<char*>(buffer_size);
-  char* cursor = reinterpret_cast<char*>(joint_names_ + num_joints);
+  // Allocates all skeleton data members.
+  char* cursor = Allocate(chars_count, num_joints);
+
+  // Reads name's buffer, they are all contiguous in the same buffer.
   _archive >> ozz::io::MakeArray(cursor, chars_count);
 
   // Fixes up array of pointers. Stops at num_joints - 1, so that it doesn't
@@ -1686,15 +1788,8 @@ void Skeleton::Load(ozz::io::IArchive& _archive, uint32_t _version) {
   // num_joints is > 0, as this was tested at the beginning of the function.
   joint_names_[num_joints - 1] = cursor;
 
-  // Reads joint's properties.
-  joint_properties_ = 
-    memory::default_allocator()->Allocate<Skeleton::JointProperties>(num_joints);
-  _archive >> ozz::io::MakeArray(joint_properties_, num_joints);
-
-  // Reads bind pose.
-  bind_pose_ =
-    memory::default_allocator()->Allocate<math::SoaTransform>(num_soa_joints());
-  _archive >> ozz::io::MakeArray(bind_pose_, num_soa_joints());
+  _archive >> ozz::io::MakeArray(joint_properties_);
+  _archive >> ozz::io::MakeArray(bind_pose_);
 }
 }  // animation
 }  // ozz

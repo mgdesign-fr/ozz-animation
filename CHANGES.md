@@ -1,8 +1,14 @@
 Release version 0.9.0
 ---------------------
+
 * Library
+  - [offline][animation] Adds a name to the offline::RawAnimation and Animation data structure.
+  - [animation] Optimizes animation and skeleton allocation strategy, merging all member buffers to a single allocation.
+  - [offline] Allows importing of all animations from a DCC file with a single command. fbx2anim now support the use of an * in the --animation option (output file name), which is replaced with the imported animation name when the output file is written to disk.
   - [offline] Removes dae tools, offline libraries and dependencies.
-  - [offline] split offline tools in skel + anim to avoid command line options "issue".
+  - [offline] Uses scene frame rate as the default sampling rate option in fbx2anim. Allows to match DCC keys and avoid interpolation issues while importing from fbx sdk.
+  - [offline] Splits offline tools in skel + anim to avoid command line options "issue".
+  - [base] Adds support for Range serialization via ozz::io::MakeArray utiliy.
 
 * Samples
   - [sample_fbx2mesh] Fixes welding of redundant vertices. Reimported meshes now have significantly less vertices.
@@ -114,7 +120,7 @@ Release version 0.5.0
   - Adds Emscripten and cross-compilation support to the builder helper python script.
   - Support for CMake 3.x.
   - Adds support for Microsoft Visual Studio 2013.
-  - Drops support fot Microsoft Visual Studio 2008 and olders, as a consequence of using <stdint.h>.
+  - Drops support for Microsoft Visual Studio 2008 and olders, as a consequence of using <stdint.h>.
 
 Release version 0.4.0
 ---------------------

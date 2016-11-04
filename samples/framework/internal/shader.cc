@@ -164,6 +164,11 @@ void Shader::UnbindAttribs() {
   }
 }
 
+void Shader::Unbind() {
+  UnbindAttribs();
+  GL(UseProgram(0));
+}
+
 ImmediatePCShader* ImmediatePCShader::Build() {
   bool success = true;
 
@@ -236,11 +241,6 @@ void ImmediatePCShader::Bind(const math::Float4x4& _model,
   math::StorePtrU(mvp.cols[2], values + 8);
   math::StorePtrU(mvp.cols[3], values + 12);
   GL(UniformMatrix4fv(mvp_uniform, 1, false, values));
-}
-
-void ImmediatePCShader::Unbind() {
-  UnbindAttribs();
-  GL(UseProgram(0));
 }
 
 ImmediatePTCShader* ImmediatePTCShader::Build() {
@@ -336,11 +336,6 @@ void ImmediatePTCShader::Bind(const math::Float4x4& _model,
   GL(Uniform1i(texture, 0));
 }
 
-void ImmediatePTCShader::Unbind() {
-  UnbindAttribs();
-  GL(UseProgram(0));
-}
-
 namespace {
 const char* kShaderUberVS =
   "uniform mat4 u_mvp;\n"
@@ -365,13 +360,25 @@ const char* kShaderUberVS =
   "  v_vertex_color = a_color;\n"
   "  v_vertex_uv = a_uv;\n"
   "}\n";
+const char* kShaderAmbientFct =
+  "vec4 GetAmbient(vec3 _world_normal) {\n"
+  "  vec3 normal = normalize(_world_normal);\n"
+  "  vec3 alpha = (normal + 1.) * .5;\n"
+  "  vec4 bt = mix(\n"
+  "    vec4(.3, .3, .7, .7), vec4(.4, .4, .8, .8), alpha.xzxz);\n"
+  "  vec4 ambient = vec4(\n"
+  "     mix(vec3(bt.x, .3, bt.y), vec3(bt.z, .8, bt.w), alpha.y), 1.);\n"
+  "  return ambient;\n"
+  "}\n";
 const char* kShaderAmbientFS =
-  "vec3 lerp(in vec3 alpha, in vec3 a, in vec3 b) {\n"
-  "  return a + alpha * (b - a);\n"
-  "}\n"
-  "vec4 lerp(in vec4 alpha, in vec4 a, in vec4 b) {\n"
-  "  return a + alpha * (b - a);\n"
-  "}\n"
+  "varying vec3 v_world_normal;\n"
+  "varying vec4 v_vertex_color;\n"
+  "void main() {\n"
+  "  vec4 ambient = GetAmbient(v_world_normal);\n"
+  "  gl_FragColor = ambient *\n"
+  "                 v_vertex_color;\n"
+  "}\n";
+const char* kShaderAmbientTexturedFS =
   "uniform sampler2D u_texture;\n"
   "varying vec3 v_world_normal;\n"
   "varying vec4 v_vertex_color;\n"
@@ -398,7 +405,7 @@ void SkeletonShader::Bind(const math::Float4x4& _model,
   const GLint position_attrib = attrib(0);
   GL(EnableVertexAttribArray(position_attrib));
   GL(VertexAttribPointer(position_attrib, 3, GL_FLOAT, GL_FALSE,
-    _pos_stride, GL_PTR_OFFSET(_pos_offset)));
+                         _pos_stride, GL_PTR_OFFSET(_pos_offset)));
 
   const GLint normal_attrib = attrib(1);
   GL(EnableVertexAttribArray(normal_attrib));
@@ -408,7 +415,7 @@ void SkeletonShader::Bind(const math::Float4x4& _model,
   const GLint color_attrib = attrib(2);
   GL(EnableVertexAttribArray(color_attrib));
   GL(VertexAttribPointer(color_attrib, 4, GL_UNSIGNED_BYTE, GL_TRUE,
-    _color_stride, GL_PTR_OFFSET(_color_offset)));
+                         _color_stride, GL_PTR_OFFSET(_color_offset)));
 
   // Binds mvp uniform
   const GLint mvp_uniform = uniform(0);
@@ -419,11 +426,6 @@ void SkeletonShader::Bind(const math::Float4x4& _model,
   math::StorePtrU(mvp.cols[2], values + 8);
   math::StorePtrU(mvp.cols[3], values + 12);
   GL(UniformMatrix4fv(mvp_uniform, 1, false, values));
-}
-
-void SkeletonShader::Unbind() {
-  UnbindAttribs();
-  GL(UseProgram(0));
 }
 
 JointShader* JointShader::Build() {
@@ -458,6 +460,7 @@ JointShader* JointShader::Build() {
     kShaderUberVS};
   const char* fs[] = {
     kPlatformSpecivicFSHeader,
+    kShaderAmbientFct,
     kShaderAmbientFS};
 
   JointShader* shader = memory::default_allocator()->New<JointShader>();
@@ -519,6 +522,7 @@ BoneShader* BoneShader::Build() {  // Builds a world matrix from joint uniforms,
     kShaderUberVS};
   const char* fs[] = {
     kPlatformSpecivicFSHeader,
+    kShaderAmbientFct,
     kShaderAmbientFS};
 
   BoneShader* shader = memory::default_allocator()->New<BoneShader>();
@@ -548,7 +552,6 @@ BoneShader* BoneShader::Build() {  // Builds a world matrix from joint uniforms,
 }
 
 AmbientShader* AmbientShader::Build() {
-  bool success = true;
 
   const char* vs[] = {
     kPlatformSpecivicVSHeader,
@@ -556,22 +559,13 @@ AmbientShader* AmbientShader::Build() {
     kShaderUberVS};
   const char* fs[] = {
     kPlatformSpecivicFSHeader,
+    kShaderAmbientFct,
     kShaderAmbientFS};
 
   AmbientShader* shader =
     memory::default_allocator()->New<AmbientShader>();
-  success &= shader->BuildFromSource(OZZ_ARRAY_SIZE(vs), vs,
-                                     OZZ_ARRAY_SIZE(fs), fs);
-
-  // Binds default attributes
-  success &= shader->FindAttrib("a_position");
-  success &= shader->FindAttrib("a_normal");
-  success &= shader->FindAttrib("a_color");
-  success &= shader->FindAttrib("a_uv");
-
-  // Binds default uniforms
-  success &= shader->BindUniform("u_mw");
-  success &= shader->BindUniform("u_mvp");
+  bool success = shader->InternalBuild(OZZ_ARRAY_SIZE(vs), vs,
+                                       OZZ_ARRAY_SIZE(fs), fs);
 
   if (!success) {
     memory::default_allocator()->Delete(shader);
@@ -581,33 +575,46 @@ AmbientShader* AmbientShader::Build() {
   return shader;
 }
 
+bool AmbientShader::InternalBuild(int _vertex_count, const char** _vertex,
+                                  int _fragment_count, const char** _fragment) {
+  bool success = true;
+
+  success &= BuildFromSource(_vertex_count, _vertex,
+                             _fragment_count, _fragment);
+
+  // Binds default attributes
+  success &= FindAttrib("a_position");
+  success &= FindAttrib("a_normal");
+  success &= FindAttrib("a_color");
+
+  // Binds default uniforms
+  success &= BindUniform("u_mw");
+  success &= BindUniform("u_mvp");
+
+  return success;
+}
+
 void AmbientShader::Bind(const math::Float4x4& _model,
                          const math::Float4x4& _view_proj,
                          GLsizei _pos_stride, GLsizei _pos_offset,
                          GLsizei _normal_stride, GLsizei _normal_offset,
-                         GLsizei _color_stride, GLsizei _color_offset,
-                         GLsizei _uv_stride, GLsizei _uv_offset) {
+                         GLsizei _color_stride, GLsizei _color_offset) {
   GL(UseProgram(program()));
 
   const GLint position_attrib = attrib(0);
   GL(EnableVertexAttribArray(position_attrib));
   GL(VertexAttribPointer(position_attrib, 3, GL_FLOAT, GL_FALSE,
-     _pos_stride, GL_PTR_OFFSET(_pos_offset)));
+                         _pos_stride, GL_PTR_OFFSET(_pos_offset)));
 
   const GLint normal_attrib = attrib(1);
   GL(EnableVertexAttribArray(normal_attrib));
   GL(VertexAttribPointer(normal_attrib, 3, GL_FLOAT, GL_TRUE,
-     _normal_stride, GL_PTR_OFFSET(_normal_offset)));
+                         _normal_stride, GL_PTR_OFFSET(_normal_offset)));
 
   const GLint color_attrib = attrib(2);
   GL(EnableVertexAttribArray(color_attrib));
   GL(VertexAttribPointer(color_attrib, 4, GL_UNSIGNED_BYTE, GL_TRUE,
-     _color_stride, GL_PTR_OFFSET(_color_offset)));
-
-  const GLint uv_attrib = attrib(3);
-  GL(EnableVertexAttribArray(uv_attrib));
-  GL(VertexAttribPointer(uv_attrib, 2, GL_FLOAT, GL_FALSE,
-     _uv_stride, GL_PTR_OFFSET(_uv_offset)));
+                         _color_stride, GL_PTR_OFFSET(_color_offset)));
 
   // Binds mw uniform
   float values[16];
@@ -627,11 +634,6 @@ void AmbientShader::Bind(const math::Float4x4& _model,
   GL(UniformMatrix4fv(mvp_uniform, 1, false, values));
 }
 
-void AmbientShader::Unbind() {
-  UnbindAttribs();
-  GL(UseProgram(0));
-}
-
 AmbientShaderInstanced* AmbientShaderInstanced::Build() {
   bool success = true;
 
@@ -641,6 +643,7 @@ AmbientShaderInstanced* AmbientShaderInstanced::Build() {
     kShaderUberVS};
   const char* fs[] = {
     kPlatformSpecivicFSHeader,
+    kShaderAmbientFct,
     kShaderAmbientFS};
 
   AmbientShaderInstanced* shader =
@@ -652,7 +655,6 @@ AmbientShaderInstanced* AmbientShaderInstanced::Build() {
   success &= shader->FindAttrib("a_position");
   success &= shader->FindAttrib("a_normal");
   success &= shader->FindAttrib("a_color");
-  success &= shader->FindAttrib("a_uv");
   success &= shader->FindAttrib("a_mw");
 
   // Binds default uniforms
@@ -670,32 +672,26 @@ void AmbientShaderInstanced::Bind(GLsizei _models_offset,
                                   const math::Float4x4& _view_proj,
                                   GLsizei _pos_stride, GLsizei _pos_offset,
                                   GLsizei _normal_stride, GLsizei _normal_offset,
-                                  GLsizei _color_stride, GLsizei _color_offset,
-                                  GLsizei _uv_stride, GLsizei _uv_offset) {
+                                  GLsizei _color_stride, GLsizei _color_offset) {
   GL(UseProgram(program()));
 
   const GLint position_attrib = attrib(0);
   GL(EnableVertexAttribArray(position_attrib));
   GL(VertexAttribPointer(position_attrib, 3, GL_FLOAT, GL_FALSE,
-     _pos_stride, GL_PTR_OFFSET(_pos_offset)));
+                         _pos_stride, GL_PTR_OFFSET(_pos_offset)));
 
   const GLint normal_attrib = attrib(1);
   GL(EnableVertexAttribArray(normal_attrib));
   GL(VertexAttribPointer(normal_attrib, 3, GL_FLOAT, GL_TRUE,
-     _normal_stride, GL_PTR_OFFSET(_normal_offset)));
+                         _normal_stride, GL_PTR_OFFSET(_normal_offset)));
 
   const GLint color_attrib = attrib(2);
   GL(EnableVertexAttribArray(color_attrib));
   GL(VertexAttribPointer(color_attrib, 4, GL_UNSIGNED_BYTE, GL_TRUE,
-     _color_stride, GL_PTR_OFFSET(_color_offset)));
-
-  const GLint uv_attrib = attrib(3);
-  GL(EnableVertexAttribArray(uv_attrib));
-  GL(VertexAttribPointer(uv_attrib, 2, GL_FLOAT, GL_FALSE,
-     _uv_stride, GL_PTR_OFFSET(_uv_offset)));
+                         _color_stride, GL_PTR_OFFSET(_color_offset)));
 
   // Binds mw uniform
-  const GLint models_attrib = attrib(4);
+  const GLint models_attrib = attrib(3);
   GL(EnableVertexAttribArray(models_attrib + 0));
   GL(EnableVertexAttribArray(models_attrib + 1));
   GL(EnableVertexAttribArray(models_attrib + 2));
@@ -705,13 +701,13 @@ void AmbientShaderInstanced::Bind(GLsizei _models_offset,
   GL(VertexAttribDivisorARB(models_attrib + 2, 1));
   GL(VertexAttribDivisorARB(models_attrib + 3, 1));
   GL(VertexAttribPointer(models_attrib + 0, 4, GL_FLOAT, GL_FALSE,
-                          sizeof(math::Float4x4), GL_PTR_OFFSET(0 + _models_offset)));
+                         sizeof(math::Float4x4), GL_PTR_OFFSET(0 + _models_offset)));
   GL(VertexAttribPointer(models_attrib + 1, 4, GL_FLOAT, GL_FALSE,
-                          sizeof(math::Float4x4), GL_PTR_OFFSET(16 + _models_offset)));
+                         sizeof(math::Float4x4), GL_PTR_OFFSET(16 + _models_offset)));
   GL(VertexAttribPointer(models_attrib + 2, 4, GL_FLOAT, GL_FALSE,
-                          sizeof(math::Float4x4), GL_PTR_OFFSET(32 + _models_offset)));
+                         sizeof(math::Float4x4), GL_PTR_OFFSET(32 + _models_offset)));
   GL(VertexAttribPointer(models_attrib + 3, 4, GL_FLOAT, GL_FALSE,
-                          sizeof(math::Float4x4), GL_PTR_OFFSET(48 + _models_offset)));
+                         sizeof(math::Float4x4), GL_PTR_OFFSET(48 + _models_offset)));
 
   // Binds mvp uniform
   const GLint mvp_uniform = uniform(0);
@@ -724,8 +720,7 @@ void AmbientShaderInstanced::Bind(GLsizei _models_offset,
 }
 
 void AmbientShaderInstanced::Unbind() {
-  UnbindAttribs();
-  const GLint models_attrib = attrib(4);
+  const GLint models_attrib = attrib(3);
   GL(DisableVertexAttribArray(models_attrib + 0));
   GL(DisableVertexAttribArray(models_attrib + 1));
   GL(DisableVertexAttribArray(models_attrib + 2));
@@ -734,7 +729,52 @@ void AmbientShaderInstanced::Unbind() {
   GL(VertexAttribDivisorARB(models_attrib + 1, 0));
   GL(VertexAttribDivisorARB(models_attrib + 2, 0));
   GL(VertexAttribDivisorARB(models_attrib + 3, 0));
-  GL(UseProgram(0));
+  Shader::Unbind();
+}
+
+AmbientTexturedShader* AmbientTexturedShader::Build() {
+
+  const char* vs[] = {
+    kPlatformSpecivicVSHeader,
+    "uniform mat4 u_mw;\n mat4 GetWorldMatrix() {return u_mw;}\n",
+    kShaderUberVS };
+  const char* fs[] = {
+    kPlatformSpecivicFSHeader,
+    kShaderAmbientFct,
+    kShaderAmbientTexturedFS };
+
+  AmbientTexturedShader* shader =
+    memory::default_allocator()->New<AmbientTexturedShader>();
+  bool success = shader->InternalBuild(OZZ_ARRAY_SIZE(vs), vs,
+                                       OZZ_ARRAY_SIZE(fs), fs);
+
+  success &= shader->FindAttrib("a_uv");
+
+  if (!success) {
+    memory::default_allocator()->Delete(shader);
+    shader = NULL;
+  }
+
+  return shader;
+}
+
+void AmbientTexturedShader::Bind(const math::Float4x4& _model,
+                                 const math::Float4x4& _view_proj,
+                                 GLsizei _pos_stride, GLsizei _pos_offset,
+                                 GLsizei _normal_stride, GLsizei _normal_offset,
+                                 GLsizei _color_stride, GLsizei _color_offset,
+                                 GLsizei _uv_stride, GLsizei _uv_offset) {
+
+  AmbientShader::Bind(_model,
+                      _view_proj,
+                      _pos_stride, _pos_offset,
+                      _normal_stride, _normal_offset,
+                      _color_stride, _color_offset);
+
+  const GLint uv_attrib = attrib(3);
+  GL(EnableVertexAttribArray(uv_attrib));
+  GL(VertexAttribPointer(uv_attrib, 2, GL_FLOAT, GL_FALSE,
+                         _uv_stride, GL_PTR_OFFSET(_uv_offset)));
 }
 }  // internal
 }  // sample

@@ -102,21 +102,29 @@ struct Mesh {
 
     typedef ozz::Vector<float>::Std Positions;
     Positions positions;
+    enum {kPositionsCpnts = 3};  // x, y, z components
 
     typedef ozz::Vector<float>::Std Normals;
     Normals normals;
+    enum {kNormalsCpnts = 3};  // x, y, z components
+
+    typedef ozz::Vector<float>::Std Tangents;
+    Tangents tangents;
+    enum {kTangentsCpnts = 4};  // x, y, z, right or left handed.
 
     typedef ozz::Vector<float>::Std UVs;
-    UVs uvs;
+    UVs uvs;  // u, v components
+    enum {kUVsCpnts = 2};
 
     typedef ozz::Vector<uint8_t>::Std Colors;
     Colors colors;
+    enum {kColorsCpnts = 4};  // r, g, b, a components
 
     typedef ozz::Vector<uint16_t>::Std JointIndices;
-    JointIndices joint_indices;
+    JointIndices joint_indices;  // Stride equals influences_count
 
     typedef ozz::Vector<float>::Std JointWeights;
-    JointWeights joint_weights;
+    JointWeights joint_weights;  // Stride equals influences_count - 1
   };
   typedef ozz::Vector<Part>::Std Parts;
   Parts parts;

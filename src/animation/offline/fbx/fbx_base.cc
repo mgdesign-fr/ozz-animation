@@ -99,7 +99,7 @@ FbxSceneLoader::FbxSceneLoader(const char* _filename,
   // Initialize the importer by providing a filename. Use all available plugins.
   const bool initialized = importer->Initialize(_filename, -1, _io_settings);
 
-  // Get the version number of the FBX file format.
+  // Get the version of the FBX file format.
   int major, minor, revision;
   importer->GetFileVersion(major, minor, revision);
 
@@ -111,14 +111,14 @@ FbxSceneLoader::FbxSceneLoader(const char* _filename,
 
     if (importer->GetStatus().GetCode() == FbxStatus::eInvalidFileVersion)
     {
-      ozz::log::Err() << "FBX version number for " << _filename << " is " <<
+      ozz::log::Err() << "FBX version of " << _filename << " is " <<
         major << "." << minor<< "." << revision << "." << std::endl;
     }
   }
 
   if (initialized) {
     if ( importer->IsFBX()) {
-      ozz::log::Log() << "FBX version number for " << _filename << " is " <<
+      ozz::log::Log() << "FBX version of " << _filename << " is " <<
         major << "." << minor<< "." << revision << "." << std::endl;
     }
 
@@ -308,18 +308,24 @@ math::Float3 FbxSystemConverter::ConvertNormal(const FbxVector4& _p) const {
   return ret;
 }
 
-math::Transform FbxSystemConverter::ConvertTransform(const FbxAMatrix& _m) const {
+bool FbxSystemConverter::ConvertTransform(const FbxAMatrix& _m,
+                                          math::Transform* _transform) const {
+  assert(_transform);
+
   const math::Float4x4 matrix = ConvertMatrix(_m);
 
   math::SimdFloat4 translation, rotation, scale;
   if (ToAffine(matrix, &translation, &rotation, &scale)) {
     ozz::math::Transform transform;
-    math::Store3PtrU(translation, &transform.translation.x);
-    math::StorePtrU(math::Normalize4(rotation), &transform.rotation.x);
-    math::Store3PtrU(scale, &transform.scale.x);
-    return transform;
+    math::Store3PtrU(translation, &_transform->translation.x);
+    math::StorePtrU(math::Normalize4(rotation), &_transform->rotation.x);
+    math::Store3PtrU(scale, &_transform->scale.x);
+    return true;
   }
-  return ozz::math::Transform::identity();
+
+  // Failed to decompose matrix, reset transform to identity.
+  *_transform = ozz::math::Transform::identity();
+  return false;
 }
 }  // fbx
 }  // ozz

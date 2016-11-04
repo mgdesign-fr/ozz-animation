@@ -126,6 +126,7 @@ bool RawAnimation::Validate() const {
 #include "ozz/base/maths/math_archive.h"
 
 #include "ozz/base/containers/vector_archive.h"
+#include "ozz/base/containers/string_archive.h"
 
 namespace ozz {
 namespace io {
@@ -138,6 +139,7 @@ void Save(OArchive& _archive,
     const animation::offline::RawAnimation& animation = _animations[i];
     _archive << animation.duration;
     _archive << animation.tracks;
+    _archive << animation.name;
   }
 }
 
@@ -151,12 +153,14 @@ void Load(IArchive& _archive,
     animation::offline::RawAnimation& animation = _animations[i];
     _archive >> animation.duration;
     _archive >> animation.tracks;
+    if (_version > 1) {
+      _archive >> animation.name;
+    }
   }
 }
 
 // RawAnimation::*Keys' version can be declared locally as it will be saved from
 // this cpp file only.
-
 
 OZZ_IO_TYPE_VERSION(1, animation::offline::RawAnimation::JointTrack)
 
@@ -366,10 +370,11 @@ math::Float3 LerpScale(const math::Float3& _a,
 
 #include "ozz/animation/offline/animation_builder.h"
 
-#include <cstddef>
-#include <cassert>
 #include <algorithm>
 #include <limits>
+#include <cstddef>
+#include <cassert>
+#include <cstring>
 
 #include "ozz/base/containers/vector.h"
 #include "ozz/base/memory/allocator.h"
@@ -557,54 +562,48 @@ void CopyRaw(const _SrcTrack& _src, uint16_t _track, float _duration,
   assert(_dest->front().key.time == 0.f && _dest->back().key.time == _duration);
 }
 
-ozz::Range<TranslationKey> CopyToAnimation(
-  ozz::Vector<SortingTranslationKey>::Std* _src) {
+void CopyToAnimation(ozz::Vector<SortingTranslationKey>::Std* _src,
+                     ozz::Range<TranslationKey>* _dest) {
   const size_t src_count = _src->size();
   if (!src_count) {
-    return ozz::Range<TranslationKey>();
+    return;
   }
 
   // Sort animation keys to favor cache coherency.
   std::sort(&_src->front(), (&_src->back()) + 1, &SortingKeyLess<SortingTranslationKey>);
 
   // Fills output.
-  ozz::Range<TranslationKey> dest =
-    memory::default_allocator()->AllocateRange<TranslationKey>(src_count);
   const SortingTranslationKey* src = &_src->front();
   for (size_t i = 0; i < src_count; ++i) {
-    TranslationKey& key = dest.begin[i];
+    TranslationKey& key = _dest->begin[i];
     key.time = src[i].key.time;
     key.track = src[i].track;
     key.value[0] = ozz::math::FloatToHalf(src[i].key.value.x);
     key.value[1] = ozz::math::FloatToHalf(src[i].key.value.y);
     key.value[2] = ozz::math::FloatToHalf(src[i].key.value.z);
   }
-  return dest;
 }
 
-ozz::Range<ScaleKey> CopyToAnimation(
-  ozz::Vector<SortingScaleKey>::Std* _src) {
+void CopyToAnimation(ozz::Vector<SortingScaleKey>::Std* _src,
+                     ozz::Range<ScaleKey>* _dest) {
   const size_t src_count = _src->size();
   if (!src_count) {
-    return ozz::Range<ScaleKey>();
+    return;
   }
 
   // Sort animation keys to favor cache coherency.
   std::sort(&_src->front(), (&_src->back()) + 1, &SortingKeyLess<SortingScaleKey>);
 
   // Fills output.
-  ozz::Range<ScaleKey> dest =
-    memory::default_allocator()->AllocateRange<ScaleKey>(src_count);
   const SortingScaleKey* src = &_src->front();
   for (size_t i = 0; i < src_count; ++i) {
-    ScaleKey& key = dest.begin[i];
+    ScaleKey& key = _dest->begin[i];
     key.time = src[i].key.time;
     key.track = src[i].track;
     key.value[0] = ozz::math::FloatToHalf(src[i].key.value.x);
     key.value[1] = ozz::math::FloatToHalf(src[i].key.value.y);
     key.value[2] = ozz::math::FloatToHalf(src[i].key.value.z);
   }
-  return dest;
 }
 
 namespace {
@@ -646,11 +645,11 @@ void CompressQuat(const ozz::math::Quaternion& _src,
 // Specialize for rotations in order to normalize quaternions.
 // Consecutive opposite quaternions are also fixed up in order to avoid checking
 // for the smallest path during the NLerp runtime algorithm.
-ozz::Range<RotationKey> CopyToAnimation(
-  ozz::Vector<SortingRotationKey>::Std* _src) {
+void CopyToAnimation(ozz::Vector<SortingRotationKey>::Std* _src,
+                     ozz::Range<RotationKey>* _dest) {
   const size_t src_count = _src->size();
   if (!src_count) {
-    return ozz::Range<RotationKey>();
+    return;
   }
 
   // Normalize quaternions.
@@ -687,18 +686,15 @@ ozz::Range<RotationKey> CopyToAnimation(
             &SortingKeyLess<SortingRotationKey>);
 
   // Fills rotation keys output.
-  ozz::Range<RotationKey> dest =
-    memory::default_allocator()->AllocateRange<RotationKey>(src_count);
   for (size_t i = 0; i < src_count; ++i) {
     const SortingRotationKey& skey = src[i];
-    RotationKey& dkey = dest.begin[i];
+    RotationKey& dkey = _dest->begin[i];
     dkey.time = skey.key.time;
     dkey.track = skey.track;
 
     // Compress quaternion to destination container.
     CompressQuat(skey.key.value, &dkey);
   }
-  return dest;
 }
 }  // namespace
 
@@ -769,10 +765,19 @@ Animation* AnimationBuilder::operator()(const RawAnimation& _input) const {
     PushBackIdentityKey<SrcSKey>(i, duration, &sorting_scales);
   }
 
+  // Allocate animation members.
+  animation->Allocate(_input.name.length() + 1,
+                      sorting_translations.size(),
+                      sorting_rotations.size(),
+                      sorting_scales.size());
+
   // Copy sorted keys to final animation.
-  animation->translations_ = CopyToAnimation(&sorting_translations);
-  animation->rotations_ = CopyToAnimation(&sorting_rotations);
-  animation->scales_ = CopyToAnimation(&sorting_scales);
+  CopyToAnimation(&sorting_translations, &animation->translations_);
+  CopyToAnimation(&sorting_rotations, &animation->rotations_);
+  CopyToAnimation(&sorting_scales, &animation->scales_);
+
+  // Copy animation's name.
+  strcpy(animation->name_, _input.name.c_str());
 
   return animation;  // Success.
 }
@@ -964,9 +969,21 @@ void Filter(const _RawTrack& _src,
   size_t last_src_pushed = 0;  // Index (in src) of the last pushed key.
   for (size_t i = 0; i < _src.size(); ++i) {
     // First and last keys are always pushed.
-    if (i == 0 || i == _src.size() - 1) {
+    if (i == 0) {
       _dest->push_back(_src[i]);
       last_src_pushed = i;
+    } else if (i == _src.size() - 1) {
+      // Don't push the last value if it's the same as last_src_pushed.
+      typename _RawTrack::const_reference left = _src[last_src_pushed];
+      typename _RawTrack::const_reference right = _src[i];
+      if (!_comparator(left.value,
+                       right.value,
+                       _tolerance,
+                       _hierarchical_tolerance,
+                       _hierarchy_length)) {
+        _dest->push_back(right);
+        last_src_pushed = i;
+      }
     } else {
       // Only inserts i key if keys in range ]last_src_pushed,i] cannot be
       // interpolated from keys last_src_pushed and i + 1.
@@ -1064,6 +1081,7 @@ bool AnimationOptimizer::operator()(const RawAnimation& _input,
   BuildHierarchicalSpecs(_input, _skeleton, &hierarchical_joint_specs);
   
   // Rebuilds output animation.
+  _output->name = _input.name;
   _output->duration = _input.duration;
   _output->tracks.resize(_input.tracks.size());
   
@@ -1467,33 +1485,25 @@ Skeleton* SkeletonBuilder::operator()(const RawSkeleton& _raw_skeleton) const {
   // Will not fail.
   Skeleton* skeleton = memory::default_allocator()->New<Skeleton>();
   const int num_joints = _raw_skeleton.num_joints();
-  skeleton->num_joints_ = num_joints;
-  const int num_soa_joints = skeleton->num_soa_joints();
 
   // Iterates through all the joint of the raw skeleton and fills a sorted joint
   // list.
   JointLister lister(num_joints);
   _raw_skeleton.IterateJointsBF<JointLister&>(lister);
   assert(static_cast<int>(lister.linear_joints.size()) == num_joints);
-
-  // Transfers sorted joints hierarchy to the new skeleton.
-  skeleton->joint_properties_ =
-    memory::default_allocator()->Allocate<Skeleton::JointProperties>(num_joints);
-  for (int i = 0; i < num_joints; ++i) {
-    skeleton->joint_properties_[i].parent = lister.linear_joints[i].parent;
-    skeleton->joint_properties_[i].is_leaf =
-      lister.linear_joints[i].joint->children.empty();
-  }
-  // Transfers joint's names: First computes name's buffer size, then allocate
-  // and do the copy.
-  size_t buffer_size = num_joints * sizeof(char*);
+  
+  // Computes name's buffer size.
+  size_t chars_size = 0;
   for (int i = 0; i < num_joints; ++i) {
     const RawSkeleton::Joint& current = *lister.linear_joints[i].joint;
-    buffer_size += (current.name.size() + 1) * sizeof(char);
+    chars_size += (current.name.size() + 1) * sizeof(char);
   }
-  skeleton->joint_names_ =
-    memory::default_allocator()->Allocate<char*>(buffer_size);
-  char* cursor = reinterpret_cast<char*>(skeleton->joint_names_ + num_joints);
+
+  // Allocates all skeleton members.
+  char* cursor = skeleton->Allocate(chars_size, num_joints);
+
+  // Copy names. All names are allocated in a single buffer. Only the first name
+  // is set, all other names array entries must be initialized.
   for (int i = 0; i < num_joints; ++i) {
     const RawSkeleton::Joint& current = *lister.linear_joints[i].joint;
     skeleton->joint_names_[i] = cursor;
@@ -1501,15 +1511,19 @@ Skeleton* SkeletonBuilder::operator()(const RawSkeleton& _raw_skeleton) const {
     cursor += (current.name.size() + 1) * sizeof(char);
   }
 
-  // Transfers t-poses.
-  skeleton->bind_pose_ =
-    memory::default_allocator()->Allocate<math::SoaTransform>(num_soa_joints);
+  // Transfers sorted joints hierarchy to the new skeleton.
+  for (int i = 0; i < num_joints; ++i) {
+    skeleton->joint_properties_[i].parent = lister.linear_joints[i].parent;
+    skeleton->joint_properties_[i].is_leaf =
+      lister.linear_joints[i].joint->children.empty();
+  }
 
+  // Transfers t-poses.
   const math::SimdFloat4 w_axis = math::simd_float4::w_axis();
   const math::SimdFloat4 zero = math::simd_float4::zero();
   const math::SimdFloat4 one = math::simd_float4::one();
 
-  for (int i = 0; i < num_soa_joints; ++i) {
+  for (int i = 0; i < skeleton->num_soa_joints(); ++i) {
     math::SimdFloat4 translations[4];
     math::SimdFloat4 scales[4];
     math::SimdFloat4 rotations[4];
