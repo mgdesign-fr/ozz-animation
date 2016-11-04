@@ -19,8 +19,9 @@
 //-----------------------------------------------------------------------------
 struct Entity
 {
+  OZZ_ALIGN(16)
   ozz::math::Float4x4 transform;
-  ozz::sample::PlaybackController controller;
+  ozz::sample::PlaybackController* controller;
   ozz::animation::SamplingCache* cache;
   ozz::Range<ozz::math::SoaTransform> locals;
   ozz::Range<ozz::math::Float4x4> models;
@@ -35,10 +36,11 @@ struct Entity
 // NOTE(jeff) Orders matters for memory alignement!
 struct Data
 {
+  OZZ_ALIGN(16)
   struct RendererData* rendererData;
-  ozz::animation::Skeleton skeletons[CONFIG_MAX_SKELETONS];
-  ozz::animation::Animation animations[CONFIG_MAX_ANIMATIONS];
-  ozz::sample::Mesh meshs[CONFIG_MAX_MESHS];
+  ozz::animation::Skeleton* skeletons[CONFIG_MAX_SKELETONS];
+  ozz::animation::Animation* animations[CONFIG_MAX_ANIMATIONS];
+  ozz::sample::Mesh* meshs[CONFIG_MAX_MESHS];
   Entity entities[CONFIG_MAX_ENTITIES];
   uint32_t entitiesCount;
 };
@@ -50,7 +52,8 @@ struct Data* initialize(struct Config* config)
 
   // NOTE(jeff) Force alignement
   // NOTE(jeff) Use ozz allocator rather than _aligned_malloc because loading functions (for mesh/skeleton/anim) destroy / recreates memory, and crash.
-  struct Data* data = (Data*)ozz::memory::default_allocator()->Allocate(sizeof(Data), 16);
+  ozz::memory::Allocator* allocator = ozz::memory::default_allocator();
+  struct Data* data = (Data*)allocator->Allocate(sizeof(Data), 16);
   
   // Init le pointeur "cache" à null pour éviter les crashs si problème à l'init.
   uint32_t entityId = 0;
@@ -59,6 +62,15 @@ struct Data* initialize(struct Config* config)
     struct Entity& entity = data->entities[entityId];
     entity.cache = NULL;
   }
+
+  for(uint32_t initCpt = 0; initCpt < CONFIG_MAX_SKELETONS; initCpt++)
+    data->skeletons[initCpt] = 0;
+
+  for(uint32_t initCpt = 0; initCpt < CONFIG_MAX_ANIMATIONS; initCpt++)
+    data->animations[initCpt] = 0;
+
+  for(uint32_t initCpt = 0; initCpt < CONFIG_MAX_MESHS; initCpt++)
+    data->meshs[initCpt] = 0;
 
   // Renderer GL
   data->rendererData = rendererInitialize();
@@ -76,7 +88,8 @@ struct Data* initialize(struct Config* config)
     if(skeletonPath == NULL)
       break;
 
-    success &= ozz::sample::LoadSkeleton(skeletonPath, &data->skeletons[skeletonId]);
+    data->skeletons[skeletonId] = allocator->New<ozz::animation::Skeleton>();
+    success &= ozz::sample::LoadSkeleton(skeletonPath, data->skeletons[skeletonId]);
   }
 
   if(success)
@@ -87,8 +100,9 @@ struct Data* initialize(struct Config* config)
       char* animationPath = config->animationPaths[animationId];
       if(animationPath == NULL)
         break;
-
-      success &= ozz::sample::LoadAnimation(animationPath, &data->animations[animationId]);
+      
+      data->animations[animationId] = allocator->New<ozz::animation::Animation>();
+      success &= ozz::sample::LoadAnimation(animationPath, data->animations[animationId]);
     }
   }
 
@@ -100,8 +114,9 @@ struct Data* initialize(struct Config* config)
       char* meshPath = config->meshsPaths[meshId];
       if(meshPath == NULL)
         break;
-
-      success &= ozz::sample::LoadMesh(meshPath, &data->meshs[meshId]);
+      
+      data->meshs[meshId] = allocator->New<ozz::sample::Mesh>();
+      success &= ozz::sample::LoadMesh(meshPath, data->meshs[meshId]);
     }
   }
 
@@ -122,7 +137,6 @@ struct Data* initialize(struct Config* config)
   {
     // Building entities
     assert(config->entitiesCount <= CONFIG_MAX_ENTITIES);
-    ozz::memory::Allocator* allocator = ozz::memory::default_allocator();
     for(entityId = 0; entityId < config->entitiesCount; ++entityId)
     {
       struct Entity& entity = data->entities[entityId];
@@ -138,11 +152,11 @@ struct Data* initialize(struct Config* config)
       entity.meshId = entityConfig.meshId;
       entity.textureId = entityConfig.textureId;
 
-      const int num_joints = data->skeletons[entity.skeletonId].num_joints();
-      const int num_soa_joints = data->skeletons[entity.skeletonId].num_soa_joints();
+      const int num_joints = data->skeletons[entity.skeletonId]->num_joints();
+      const int num_soa_joints = data->skeletons[entity.skeletonId]->num_soa_joints();
 
       // The number of joints of the mesh needs to match skeleton.
-      if (data->meshs[entity.meshId].num_joints() != num_joints)
+      if (data->meshs[entity.meshId]->num_joints() != num_joints)
       {
         ozz::log::Err() << "The provided mesh doesn't match skeleton (joint count mismatch)." << std::endl;
         success = false;
@@ -151,7 +165,7 @@ struct Data* initialize(struct Config* config)
       // Allocates runtime buffers.
       entity.locals = allocator->AllocateRange<ozz::math::SoaTransform>(num_soa_joints);
       entity.models = allocator->AllocateRange<ozz::math::Float4x4>(num_joints);
-      entity.skinning_matrices = allocator-> AllocateRange<ozz::math::Float4x4>(num_joints);
+      entity.skinning_matrices = allocator->AllocateRange<ozz::math::Float4x4>(num_joints);
 
       // Allocates a cache that matches animation requirements.
       entity.cache = allocator->New<ozz::animation::SamplingCache>(num_joints);
@@ -160,7 +174,8 @@ struct Data* initialize(struct Config* config)
       floatPtrToOzzMatrix(entityConfig.transform, entity.transform);
 
       // Entity animation offset.
-      entity.controller.set_time(entityConfig.timeOffset);
+      entity.controller = allocator->New<ozz::sample::PlaybackController>();
+      entity.controller->set_time(entityConfig.timeOffset);
     }
     data->entitiesCount = config->entitiesCount;
   }
@@ -189,6 +204,7 @@ void dispose(struct Data* data)
       allocator->Deallocate(entity.models);
       allocator->Deallocate(entity.skinning_matrices);
       allocator->Delete(entity.cache);
+      allocator->Delete(entity.controller);
     }
   }
 
@@ -198,6 +214,18 @@ void dispose(struct Data* data)
     rendererDispose(data->rendererData);
     data->rendererData = NULL;
   }
+
+  for(uint32_t cleanCpt = 0; cleanCpt < CONFIG_MAX_SKELETONS; cleanCpt++)
+    if(data->skeletons[cleanCpt] != 0)
+      allocator->Delete<ozz::animation::Skeleton>(data->skeletons[cleanCpt]);
+  
+  for(uint32_t cleanCpt = 0; cleanCpt < CONFIG_MAX_ANIMATIONS; cleanCpt++)
+    if(data->animations[cleanCpt] != 0)
+      allocator->Delete<ozz::animation::Animation>(data->animations[cleanCpt]);
+
+  for(uint32_t cleanCpt = 0; cleanCpt < CONFIG_MAX_MESHS; cleanCpt++)
+    if(data->meshs[cleanCpt] != 0)
+      allocator->Delete<ozz::sample::Mesh>(data->meshs[cleanCpt]);
 
   ozz::memory::default_allocator()->Deallocate(data);
 }
@@ -216,25 +244,25 @@ void update(struct Data* data, float _dt)
   for(uint32_t entityId = 0; entityId < data->entitiesCount; ++entityId)
   {
     struct Entity& entity = data->entities[entityId];
-    ozz::animation::Skeleton& entitySkeleton = data->skeletons[entity.skeletonId];
-    ozz::animation::Animation& entityAnimation = data->animations[entity.animationId];
-    ozz::sample::Mesh& entityMesh = data->meshs[entity.meshId];
+    ozz::animation::Skeleton* entitySkeleton = data->skeletons[entity.skeletonId];
+    ozz::animation::Animation* entityAnimation = data->animations[entity.animationId];
+    ozz::sample::Mesh* entityMesh = data->meshs[entity.meshId];
   
     // Updates current animation time.
-    entity.controller.Update(entityAnimation, _dt);
+    entity.controller->Update(*entityAnimation, _dt);
 
     // Samples optimized animation at t = animation_time_.
     ozz::animation::SamplingJob sampling_job;
-    sampling_job.animation = &entityAnimation;
+    sampling_job.animation = entityAnimation;
     sampling_job.cache = entity.cache;
-    sampling_job.time = entity.controller.time();
+    sampling_job.time = entity.controller->time();
     sampling_job.output = entity.locals;
     bool success = sampling_job.Run();
     assert(success);
 
     // Converts from local space to model space matrices.
     ozz::animation::LocalToModelJob ltm_job;
-    ltm_job.skeleton = &entitySkeleton;
+    ltm_job.skeleton = entitySkeleton;
     ltm_job.input = entity.locals;
     ltm_job.output = entity.models;
     success = ltm_job.Run();
@@ -242,11 +270,11 @@ void update(struct Data* data, float _dt)
 
     // Update skinning matrices latest blending stage output.
     assert(entity.models.Count() == entity.skinning_matrices.Count() &&
-           entity.models.Count() == entityMesh.inverse_bind_poses.size());
+           entity.models.Count() == entityMesh->inverse_bind_poses.size());
 
     // Builds skinning matrices, based on the output of the animation stage.
     for (size_t i = 0; i < entity.models.Count(); ++i)
-      entity.skinning_matrices[i] = entity.models[i] * entityMesh.inverse_bind_poses[i];
+      entity.skinning_matrices[i] = entity.models[i] * entityMesh->inverse_bind_poses[i];
   }
 }
 
@@ -265,7 +293,7 @@ void render(struct Data* data, float* viewProjMatrix)
   for(uint32_t entityId = 0; entityId < data->entitiesCount; ++entityId)
   {
     struct Entity& entity = data->entities[entityId];
-    ozz::sample::Mesh& entityMesh = data->meshs[entity.meshId];
+    ozz::sample::Mesh* entityMesh = data->meshs[entity.meshId];
 #if CAPI_NO_SHADER
     rendererDrawSkinnedMesh(data->rendererData, viewProj, entityMesh, entity.textureId, entity.skinning_matrices, entity.transform, (GLint)position_attrib, (GLint)normal_attrib, (GLint)uv_attrib, (GLint)u_model_matrix, (GLint)u_view_projection_matrix, (GLint)u_texture);
 #else

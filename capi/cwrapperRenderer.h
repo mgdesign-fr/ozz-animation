@@ -35,9 +35,9 @@ void rendererDispose(struct RendererData* rendererData);
 
 //-----------------------------------------------------------------------------
 #if CAPI_NO_SHADER
-void rendererDrawSkinnedMesh(struct RendererData* rendererData, ozz::math::Float4x4& viewProjMatrix, const ozz::sample::Mesh& mesh, const unsigned int textureId, const ozz::Range<ozz::math::Float4x4> skinning_matrices, const ozz::math::Float4x4& transform, GLint position_attrib, GLint normal_attrib, GLint uv_attrib, GLint u_model_matrix, GLint u_view_projection_matrix, GLint u_texture);
+void rendererDrawSkinnedMesh(struct RendererData* rendererData, ozz::math::Float4x4& viewProjMatrix, const ozz::sample::Mesh* mesh, const unsigned int textureId, const ozz::Range<ozz::math::Float4x4> skinning_matrices, const ozz::math::Float4x4& transform, GLint position_attrib, GLint normal_attrib, GLint uv_attrib, GLint u_model_matrix, GLint u_view_projection_matrix, GLint u_texture);
 #else
-void rendererDrawSkinnedMesh(struct RendererData* rendererData, ozz::math::Float4x4& viewProjMatrix, const ozz::sample::Mesh& mesh, const unsigned int textureId, const ozz::Range<ozz::math::Float4x4> skinning_matrices, const ozz::math::Float4x4& transform);
+void rendererDrawSkinnedMesh(struct RendererData* rendererData, ozz::math::Float4x4& viewProjMatrix, const ozz::sample::Mesh* mesh, const unsigned int textureId, const ozz::Range<ozz::math::Float4x4> skinning_matrices, const ozz::math::Float4x4& transform);
 #endif
 
 //-----------------------------------------------------------------------------

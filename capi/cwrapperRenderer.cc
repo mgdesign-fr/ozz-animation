@@ -134,6 +134,7 @@ private:
 //-----------------------------------------------------------------------------
 struct RendererData
 {
+  OZZ_ALIGN(16)
   GLuint glTextures[CONFIG_MAX_TEXTURES];
   GLuint dynamic_array_bo;
   GLuint dynamic_index_bo;
@@ -198,15 +199,15 @@ void rendererDispose(struct RendererData* rendererData)
 
 //-----------------------------------------------------------------------------
 #if CAPI_NO_SHADER
-void rendererDrawSkinnedMesh(struct RendererData* rendererData, ozz::math::Float4x4& viewProjMatrix, const ozz::sample::Mesh& mesh, const unsigned int textureId, const ozz::Range<ozz::math::Float4x4> skinning_matrices, const ozz::math::Float4x4& transform, GLint position_attrib, GLint normal_attrib, GLint uv_attrib, GLint u_model_matrix, GLint u_view_projection_matrix, GLint u_texture)
+void rendererDrawSkinnedMesh(struct RendererData* rendererData, ozz::math::Float4x4& viewProjMatrix, const ozz::sample::Mesh* mesh, const unsigned int textureId, const ozz::Range<ozz::math::Float4x4> skinning_matrices, const ozz::math::Float4x4& transform, GLint position_attrib, GLint normal_attrib, GLint uv_attrib, GLint u_model_matrix, GLint u_view_projection_matrix, GLint u_texture)
 #else
-void rendererDrawSkinnedMesh(struct RendererData* rendererData, ozz::math::Float4x4& viewProjMatrix, const ozz::sample::Mesh& mesh, const unsigned int textureId, const ozz::Range<ozz::math::Float4x4> skinning_matrices, const ozz::math::Float4x4& transform)
+void rendererDrawSkinnedMesh(struct RendererData* rendererData, ozz::math::Float4x4& viewProjMatrix, const ozz::sample::Mesh* mesh, const unsigned int textureId, const ozz::Range<ozz::math::Float4x4> skinning_matrices, const ozz::math::Float4x4& transform)
 #endif
 {
   // NOTE(jeff) Reset des erreur GL qui peuvent survenir du coté de python
   glGetError();
 
-  const int vertex_count = mesh.vertex_count();
+  const int vertex_count = mesh->vertex_count();
 
   // Positions and normals are interleaved to improve caching while executing
   // skinning job.
@@ -232,9 +233,9 @@ void rendererDrawSkinnedMesh(struct RendererData* rendererData, ozz::math::Float
   // Runs a skinning job per mesh part. Triangle indices are shared
   // across parts.
   size_t processed_vertex_count = 0;
-  for (size_t i = 0; i < mesh.parts.size(); ++i)
+  for (size_t i = 0; i < mesh->parts.size(); ++i)
   {
-    const ozz::sample::Mesh::Part& part = mesh.parts[i];
+    const ozz::sample::Mesh::Part& part = mesh->parts[i];
 
     // Skip this iteration if no vertex.
     const size_t part_vertex_count = part.positions.size() / 3;
@@ -369,7 +370,7 @@ void rendererDrawSkinnedMesh(struct RendererData* rendererData, ozz::math::Float
   CWRAPPER_GL(BindBuffer(GL_ARRAY_BUFFER, 0));
 
   // Maps the index dynamic buffer and update it.
-  const ozz::sample::Mesh::TriangleIndices& indices = mesh.triangle_indices;
+  const ozz::sample::Mesh::TriangleIndices& indices = mesh->triangle_indices;
   CWRAPPER_GL(BindBuffer(GL_ELEMENT_ARRAY_BUFFER, rendererData->dynamic_index_bo));
   CWRAPPER_GL(BufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(ozz::sample::Mesh::TriangleIndices::value_type), array_begin(indices), GL_STREAM_DRAW));
   
