@@ -57,10 +57,10 @@ static float defaultTransformIdentity[16] = {1.0f, 0.0f, 0.0f, 0.0f,
                                              0.0f, 0.0f, 0.0f, 1.0f};
 static struct EntityConfig defaultEntitiesConfig[] = { {1, 1, 1, 1, defaultTransformIdentity, 0.0f}};
 static struct Config defaultConfiguration = {
-                                              {"media/Man01a_ProOptimized(TalkLoop_0-200)_skeleton.ozz", "media/Man02b_ProOptimized(StandLoop_0-200)_skeleton.ozz"},
-                                              {"media/Man01a_ProOptimized(TalkLoop_0-200)_animation.ozz", "media/Man02b_ProOptimized(StandLoop_0-200)_animation.ozz"},
-                                              {"media/Man01a_ProOptimized(TalkLoop_0-200)_mesh.ozz", "media/Man02b_ProOptimized(StandLoop_0-200)_mesh.ozz"},
-                                              {"media/UVW_man00.jpg", "media/UVW_man00.jpg"},
+                                              {"media/Man01a_ProOptimized(TalkLoop_0-200)_skeleton.ozz", "media/Man02b_ProOptimized(StandLoop_0-200)_skeleton.ozz", 0},
+                                              {"media/Man01a_ProOptimized(TalkLoop_0-200)_animation.ozz", "media/Man02b_ProOptimized(StandLoop_0-200)_animation.ozz", 0},
+                                              {"media/Man01a_ProOptimized(TalkLoop_0-200)_mesh.ozz", "media/Man02b_ProOptimized(StandLoop_0-200)_mesh.ozz", 0},
+                                              {"media/UVW_man00.jpg", "media/UVW_man00.jpg", 0},
                                               defaultEntitiesConfig,
                                               sizeof(defaultEntitiesConfig) / sizeof(struct EntityConfig)
                                             };

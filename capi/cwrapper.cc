@@ -50,7 +50,7 @@ struct Data* initialize(struct Config* config)
   
   // Init le pointeur "cache" à null pour éviter les crashs si problème à l'init.
   uint32_t entityId = 0;
-  for(entityId = 0; entityId < config->entitiesCount; ++entityId)
+  for(entityId = 0; entityId < CONFIG_MAX_ENTITIES; ++entityId)
   {
     struct Entity& entity = data->entities[entityId];
     entity.cache = NULL;
@@ -225,14 +225,16 @@ void update(struct Data* data, float _dt)
     sampling_job.cache = entity.cache;
     sampling_job.time = entity.controller.time();
     sampling_job.output = entity.locals;
-    assert(sampling_job.Run());
+    bool success = sampling_job.Run();
+    assert(success);
 
     // Converts from local space to model space matrices.
     ozz::animation::LocalToModelJob ltm_job;
     ltm_job.skeleton = &entitySkeleton;
     ltm_job.input = entity.locals;
     ltm_job.output = entity.models;
-    assert(ltm_job.Run());
+    success = ltm_job.Run();
+    assert(success);
 
     // Update skinning matrices latest blending stage output.
     assert(entity.models.Count() == entity.skinning_matrices.Count() &&

@@ -31,9 +31,9 @@ DECL_GL_EXT(glDisableVertexAttribArray, PFNGLDISABLEVERTEXATTRIBARRAYPROC);
 DECL_GL_EXT(glUniform1i, PFNGLUNIFORM1IPROC);
 DECL_GL_EXT(glUniformMatrix4fv, PFNGLUNIFORMMATRIX4FVPROC);
 DECL_GL_EXT(glGenerateMipmap, PFNGLGENERATEMIPMAPPROC);
+DECL_GL_EXT(glActiveTexture, PFNGLACTIVETEXTUREPROC);
 #ifndef CAPI_NO_SHADER
 DECL_GL_EXT(glUseProgram, PFNGLUSEPROGRAMPROC);
-DECL_GL_EXT(glUniformMatrix4fv, PFNGLUNIFORMMATRIX4FVPROC);
 DECL_GL_EXT(glAttachShader, PFNGLATTACHSHADERPROC);
 DECL_GL_EXT(glCompileShader, PFNGLCOMPILESHADERPROC);
 DECL_GL_EXT(glCreateProgram, PFNGLCREATEPROGRAMPROC);
@@ -77,9 +77,9 @@ void _rendererInitializeOpenGLExtensions()
   INIT_GL_EXT(glUniform1i, PFNGLUNIFORM1IPROC);
   INIT_GL_EXT(glUniformMatrix4fv, PFNGLUNIFORMMATRIX4FVPROC);
   INIT_GL_EXT(glGenerateMipmap, PFNGLGENERATEMIPMAPPROC);
+  INIT_GL_EXT(glActiveTexture, PFNGLACTIVETEXTUREPROC);
 #ifndef CAPI_NO_SHADER
   INIT_GL_EXT(glUseProgram, PFNGLUSEPROGRAMPROC);
-  INIT_GL_EXT(glUniformMatrix4fv, PFNGLUNIFORMMATRIX4FVPROC);
   INIT_GL_EXT(glAttachShader, PFNGLATTACHSHADERPROC);
   INIT_GL_EXT(glCompileShader, PFNGLCOMPILESHADERPROC);
   INIT_GL_EXT(glCreateProgram, PFNGLCREATEPROGRAMPROC);
@@ -146,6 +146,9 @@ struct RendererData
 //-----------------------------------------------------------------------------
 struct RendererData* rendererInitialize()
 {
+  // NOTE(jeff) Reset des erreur GL qui peuvent survenir du coté de python
+  glGetError();
+
   _rendererInitializeOpenGLExtensions();
   struct RendererData* rendererData = new RendererData();
   
@@ -164,6 +167,9 @@ struct RendererData* rendererInitialize()
 //-----------------------------------------------------------------------------
 void rendererDispose(struct RendererData* rendererData)
 {
+  // NOTE(jeff) Reset des erreur GL qui peuvent survenir du coté de python
+  glGetError();
+
   if(rendererData->dynamic_array_bo)
   {
     CWRAPPER_GL(DeleteBuffers(1, &rendererData->dynamic_array_bo));
@@ -197,6 +203,9 @@ void rendererDrawSkinnedMesh(struct RendererData* rendererData, ozz::math::Float
 void rendererDrawSkinnedMesh(struct RendererData* rendererData, ozz::math::Float4x4& viewProjMatrix, const ozz::sample::Mesh& mesh, const unsigned int textureId, const ozz::Range<ozz::math::Float4x4> skinning_matrices, const ozz::math::Float4x4& transform)
 #endif
 {
+  // NOTE(jeff) Reset des erreur GL qui peuvent survenir du coté de python
+  glGetError();
+
   const int vertex_count = mesh.vertex_count();
 
   // Positions and normals are interleaved to improve caching while executing
@@ -295,7 +304,8 @@ void rendererDrawSkinnedMesh(struct RendererData* rendererData, ozz::math::Float
     }
 
     // Execute the job, which should succeed unless a parameter is invalid.
-    assert(skinning_job.Run());
+    bool success = skinning_job.Run();
+    assert(success);
 
     // UVs
     assert(part_vertex_count == part.uvs.size() / 2);
@@ -364,6 +374,7 @@ void rendererDrawSkinnedMesh(struct RendererData* rendererData, ozz::math::Float
   CWRAPPER_GL(BufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(ozz::sample::Mesh::TriangleIndices::value_type), array_begin(indices), GL_STREAM_DRAW));
   
   // Binds texture
+  CWRAPPER_GL(ActiveTexture(GL_TEXTURE0));
   glBindTexture(GL_TEXTURE_2D, rendererData->glTextures[textureId]);
 
   // Draws the mesh.
@@ -386,6 +397,9 @@ void rendererDrawSkinnedMesh(struct RendererData* rendererData, ozz::math::Float
 //-----------------------------------------------------------------------------
 bool rendererLoadTexture(struct RendererData* rendererData, const char* texturePath, unsigned int textureId)
 {
+  // NOTE(jeff) Reset des erreur GL qui peuvent survenir du coté de python
+  glGetError();
+
   bool success = false;
   int imageWidth, imageHeight;
   int imageBpp = 3;
@@ -397,6 +411,7 @@ bool rendererLoadTexture(struct RendererData* rendererData, const char* textureP
     ozz::log::Out() << "Loading texture: " << texturePath << "." << std::endl;
 
     // Create GL texture and load image data in it
+    CWRAPPER_GL(ActiveTexture(GL_TEXTURE0));
     glGenTextures(1, &rendererData->glTextures[textureId]);
     glBindTexture(GL_TEXTURE_2D, rendererData->glTextures[textureId]);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -421,6 +436,9 @@ bool rendererLoadTexture(struct RendererData* rendererData, const char* textureP
 //-----------------------------------------------------------------------------
 void rendererUnloadTexture(struct RendererData* rendererData, unsigned int textureId)
 {
+  // NOTE(jeff) Reset des erreur GL qui peuvent survenir du coté de python
+  glGetError();
+
   if(rendererData->glTextures[textureId] != 0)
   {
     glDeleteTextures(1, &rendererData->glTextures[textureId]);

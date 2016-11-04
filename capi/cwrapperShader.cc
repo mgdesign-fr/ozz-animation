@@ -2,6 +2,7 @@
 
 #ifndef CAPI_NO_SHADER
 #include <ozz/base/maths/simd_math.h>
+#include "ozz/base/log.h"
 
 //-----------------------------------------------------------------------------
 // Helper macro used to declare extension function pointer.
