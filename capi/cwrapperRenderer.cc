@@ -199,7 +199,7 @@ void rendererDispose(struct RendererData* rendererData)
 
 //-----------------------------------------------------------------------------
 #if CAPI_NO_SHADER
-void rendererDrawSkinnedMesh(struct RendererData* rendererData, ozz::math::Float4x4& viewProjMatrix, const ozz::sample::Mesh* mesh, const unsigned int textureId, const ozz::Range<ozz::math::Float4x4> skinning_matrices, const ozz::math::Float4x4& transform, GLint position_attrib, GLint normal_attrib, GLint uv_attrib, GLint u_model_matrix, GLint u_view_projection_matrix, GLint u_texture)
+void rendererDrawSkinnedMesh(struct RendererData* rendererData, ozz::math::Float4x4& viewProjMatrix, const ozz::sample::Mesh* mesh, const unsigned int textureId, const ozz::Range<ozz::math::Float4x4> skinning_matrices, const ozz::math::Float4x4& transform, GLint position_attrib, GLint normal_attrib, GLint uv_attrib, GLint u_model_matrix, GLint u_view_projection_matrix, GLint u_texture, int textureUnit)
 #else
 void rendererDrawSkinnedMesh(struct RendererData* rendererData, ozz::math::Float4x4& viewProjMatrix, const ozz::sample::Mesh* mesh, const unsigned int textureId, const ozz::Range<ozz::math::Float4x4> skinning_matrices, const ozz::math::Float4x4& transform)
 #endif
@@ -357,7 +357,7 @@ void rendererDrawSkinnedMesh(struct RendererData* rendererData, ozz::math::Float
 
   // Binds texture sampler uniform
   if(u_texture >= 0)
-    CWRAPPER_GL(Uniform1i(u_texture, 0));
+    CWRAPPER_GL(Uniform1i(u_texture, textureUnit));
 #else
   // Binds shader with this array buffer.
   rendererData->shader->Bind(transform,
@@ -375,7 +375,7 @@ void rendererDrawSkinnedMesh(struct RendererData* rendererData, ozz::math::Float
   CWRAPPER_GL(BufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(ozz::sample::Mesh::TriangleIndices::value_type), array_begin(indices), GL_STREAM_DRAW));
   
   // Binds texture
-  CWRAPPER_GL(ActiveTexture(GL_TEXTURE0));
+  CWRAPPER_GL(ActiveTexture(GL_TEXTURE0 + textureUnit));
   glBindTexture(GL_TEXTURE_2D, rendererData->glTextures[textureId]);
 
   // Draws the mesh.
