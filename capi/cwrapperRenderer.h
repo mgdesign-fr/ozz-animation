@@ -3,6 +3,8 @@
 #define OZZ_C_WRAPPER_RENDERER
 
 //-----------------------------------------------------------------------------
+#include "cwrapperUtils.h"
+#include <ozz/base/maths/box.h>
 #include <framework/mesh.h>
 
 #include <Windows.h>

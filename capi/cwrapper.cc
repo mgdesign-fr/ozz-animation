@@ -3,6 +3,7 @@
 #include "cwrapperRenderer.h"
 
 #include <ozz/base/log.h>
+#include <ozz/base/maths/box.h>
 #include <ozz/base/maths/vec_float.h>
 #include <ozz/base/maths/simd_math.h>
 #include <ozz/base/maths/soa_transform.h>
@@ -26,6 +27,7 @@ struct Entity
   ozz::Range<ozz::math::SoaTransform> locals;
   ozz::Range<ozz::math::Float4x4> models;
   ozz::Range<ozz::math::Float4x4> skinning_matrices;
+  ozz::math::Box boundingBox;
   uint32_t skeletonId;
   uint32_t animationId;
   uint32_t meshId;
@@ -272,6 +274,9 @@ void update(struct Data* data, float _dt)
     assert(entity.models.Count() == entity.skinning_matrices.Count() &&
            entity.models.Count() == entityMesh->inverse_bind_poses.size());
 
+    // Build bounding box
+    ozz::sample::ComputePostureBounds(entity.models, &entity.boundingBox);
+
     // Builds skinning matrices, based on the output of the animation stage.
     for (size_t i = 0; i < entity.models.Count(); ++i)
       entity.skinning_matrices[i] = entity.models[i] * entityMesh->inverse_bind_poses[i];
@@ -279,25 +284,69 @@ void update(struct Data* data, float _dt)
 }
 
 //-----------------------------------------------------------------------------
+bool entitOutsideFrustum(const Plane* frustumPlanes, const ozz::math::Box& boundingBox, const ozz::math::Float4x4& transform)
+{
+  const float obbExtentsOS[3] = { (boundingBox.max.x - boundingBox.min.x) * 0.5f,
+                                  (boundingBox.max.y - boundingBox.min.y) * 0.5f,
+                                  (boundingBox.max.z - boundingBox.min.z) * 0.5f };
+
+  const float obbCenterWS[3] = { ((boundingBox.min.x + boundingBox.max.x) * 0.5f) + transform.cols[3].m128_f32[0],
+                                 ((boundingBox.min.y + boundingBox.max.y) * 0.5f) + transform.cols[3].m128_f32[1],
+                                 ((boundingBox.min.z + boundingBox.max.z) * 0.5f) + transform.cols[3].m128_f32[2] };
+  
+  // "Rotate" extent
+  const float aabbExtent[3] = { obbExtentsOS[0]*fabs(transform.cols[0].m128_f32[0]) + obbExtentsOS[1]*fabs(transform.cols[0].m128_f32[1]) + obbExtentsOS[2]*fabs(transform.cols[0].m128_f32[2]),
+                                obbExtentsOS[0]*fabs(transform.cols[1].m128_f32[0]) + obbExtentsOS[1]*fabs(transform.cols[1].m128_f32[1]) + obbExtentsOS[2]*fabs(transform.cols[1].m128_f32[2]),
+                                obbExtentsOS[0]*fabs(transform.cols[2].m128_f32[0]) + obbExtentsOS[1]*fabs(transform.cols[2].m128_f32[1]) + obbExtentsOS[2]*fabs(transform.cols[2].m128_f32[2]) };
+
+  // Check every frustum plane
+  for(int planeId = 0; planeId < 6; planeId++)
+  {
+    const Plane& plane = frustumPlanes[planeId];
+    float distance = plane.normal[0] * obbCenterWS[0] + plane.normal[1] * obbCenterWS[1] + plane.normal[2] * obbCenterWS[2] + plane.distance;
+    float maxAbsDist = fabs(plane.normal[0] * aabbExtent[0]) + fabs(plane.normal[1] * aabbExtent[1]) + fabs(plane.normal[2] * aabbExtent[2]);
+    
+    if (distance < -maxAbsDist)
+    {
+      // ALL corners on negative side therefore out of view
+      return true;
+    }
+  }
+
+  return false;
+}
+
+//-----------------------------------------------------------------------------
 #if CAPI_NO_SHADER
-void render(struct Data* data, float* viewProjMatrix, int position_attrib, int normal_attrib, int uv_attrib, int u_model_matrix, int u_view_projection_matrix, int u_texture, int textureUnit)
+unsigned int render(struct Data* data, float* viewProjMatrix, int position_attrib, int normal_attrib, int uv_attrib, int u_model_matrix, int u_view_projection_matrix, int u_texture, int textureUnit)
 #else
-void render(struct Data* data, float* viewProjMatrix)
+unsigned int render(struct Data* data, float* viewProjMatrix)
 #endif
 {
   // Setup view & proj matrix
   ozz::math::Float4x4 viewProj;
   floatPtrToOzzMatrix(viewProjMatrix, viewProj);
 
+  // Frustum planes for culling
+  Plane frustumPlanes[6];
+  buildFrustumPlanes(frustumPlanes, viewProjMatrix);
+
   // Render meshs
+  uint32_t drawedEntities = 0;
   for(uint32_t entityId = 0; entityId < data->entitiesCount; ++entityId)
   {
     struct Entity& entity = data->entities[entityId];
     ozz::sample::Mesh* entityMesh = data->meshs[entity.meshId];
+
+    if(!entitOutsideFrustum(frustumPlanes, entity.boundingBox, entity.transform))
+    {
 #if CAPI_NO_SHADER
-    rendererDrawSkinnedMesh(data->rendererData, viewProj, entityMesh, entity.textureId, entity.skinning_matrices, entity.transform, (GLint)position_attrib, (GLint)normal_attrib, (GLint)uv_attrib, (GLint)u_model_matrix, (GLint)u_view_projection_matrix, (GLint)u_texture, textureUnit);
+      rendererDrawSkinnedMesh(data->rendererData, viewProj, entityMesh, entity.textureId, entity.skinning_matrices, entity.transform, (GLint)position_attrib, (GLint)normal_attrib, (GLint)uv_attrib, (GLint)u_model_matrix, (GLint)u_view_projection_matrix, (GLint)u_texture, textureUnit);
 #else
-    rendererDrawSkinnedMesh(data->rendererData, viewProj, entityMesh, entity.textureId, entity.skinning_matrices, entity.transform);
+      rendererDrawSkinnedMesh(data->rendererData, viewProj, entityMesh, entity.textureId, entity.skinning_matrices, entity.transform);
 #endif
+      drawedEntities++;
+    }
   }
+  return drawedEntities;
 }
